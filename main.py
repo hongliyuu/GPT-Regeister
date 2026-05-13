@@ -218,19 +218,20 @@ def run_registration(
         # 重定向链会落到 /email-verification 页面。
         follow_authorize(session, authorize_url)
 
-        # 步骤5: 显式触发 OTP 发送
-        # /email-verification 页面加载后，真实浏览器中的 JS 会调用此接口发 OTP，
-        # 协议层必须手动调用，否则 OpenAI 服务端不会发出验证邮件。
-        send_email_otp(session)
-        time.sleep(2)
-
-        # ==================== 阶段3: 验证码验证 ====================
-        # 步骤9: 获取 Sentinel Token（authorize_continue，用于验证码提交）
-        sentinel_resp_9 = request_sentinel_token(session, "authorize_continue")
-        sentinel_header_9, _ = build_sentinel_header(session, sentinel_resp_9, "authorize_continue")
+        # ==================== 阶段3: 获取 Sentinel Token + 触发 OTP ====================
+        # 步骤5: 获取 Sentinel Token（authorize_continue）
+        # 真实浏览器中 /email-verification 页面的 JS 会先拿 sentinel token，
+        # 再带着它调用 /api/accounts/email-otp/send 触发邮件发送。
+        sentinel_resp_5 = request_sentinel_token(session, "authorize_continue")
+        sentinel_header_5, _ = build_sentinel_header(session, sentinel_resp_5, "authorize_continue")
         time.sleep(0.3)
 
-        # 等待验证码：USE_EMAIL_SERVICE=True 时自动从 Outlook 取件，否则人工输入
+        # 步骤6: 显式触发 OTP 发送（带 sentinel token，否则 OpenAI 静默忽略）
+        send_email_otp(session, sentinel_header=sentinel_header_5)
+        time.sleep(2)
+
+        # ==================== 阶段4: 验证码验证 ====================
+        # 等待验证码：USE_EMAIL_SERVICE=True 时自动从 IMAP 取件，否则人工输入
         if otp_code is None:
             if USE_EMAIL_SERVICE:
                 logger.info(f"[OTP] 等待验证码：{email}")
@@ -240,25 +241,25 @@ def run_registration(
                 logger.info("[OTP] 请检查邮箱，输入收到的 6 位验证码:")
                 otp_code = input(">>> 验证码: ").strip()
 
-        # 步骤10: 提交验证码（带 sentinel-token 头）
-        validate_result = validate_email_otp(session, otp_code, sentinel_header_9)
+        # 步骤7: 提交验证码（带 sentinel-token 头）
+        validate_result = validate_email_otp(session, otp_code, sentinel_header_5)
         time.sleep(0.5)
 
         # ==================== 阶段5: 完成注册 ====================
-        # 步骤11: 获取 Sentinel Token（oauth_create_account）
-        sentinel_resp_11 = request_sentinel_token(session, "oauth_create_account")
-        sentinel_header_11, so_header_11 = build_sentinel_header(session, sentinel_resp_11, "oauth_create_account")
+        # 步骤8: 获取 Sentinel Token（oauth_create_account）
+        sentinel_resp_8 = request_sentinel_token(session, "oauth_create_account")
+        sentinel_header_8, so_header_8 = build_sentinel_header(session, sentinel_resp_8, "oauth_create_account")
         time.sleep(0.3)
 
-        # 步骤12: 提交用户信息，完成注册
-        create_result = create_account(session, name, birthday, sentinel_header_11, so_header_11)
+        # 步骤9: 提交用户信息，完成注册
+        create_result = create_account(session, name, birthday, sentinel_header_8, so_header_8)
         create_acknowledged = True
 
         logger.info(f"[注册] 创建接口已通过：{email}，继续完成 OAuth 回调")
         time.sleep(1)
 
         # ==================== 阶段6: OAuth 回调与登录态建立 ====================
-        # 步骤12.5: 跟随 continue_url 完成 OAuth 回调
+        # 步骤10: 跟随 continue_url 完成 OAuth 回调
         # 这一步 chatgpt.com 才会设置 __Secure-next-auth.session-token cookie，
         # 之后 /api/auth/session 才能返回真正的 accessToken。
         continue_url = create_result.get("continue_url")
@@ -267,14 +268,14 @@ def run_registration(
                 f"create_account 响应缺少 continue_url，无法继续: {create_result}"
             )
 
-        # 步骤13: 拉 /api/auth/session 提取 accessToken
+        # 步骤11: 拉 /api/auth/session 提取 accessToken
         session_info, access_token = _finalize_registration_session(session, continue_url, email)
         time.sleep(1)
 
         # ==================== 阶段7: 设置 2FA（受 config.ENABLE_2FA 控制）====================
         totp_secret = None
         if ENABLE_2FA:
-            # 步骤14-20: 重认证（要再收一次邮箱 OTP）→ enroll TOTP → activate
+            # 步骤12-18: 重认证（要再收一次邮箱 OTP）→ enroll TOTP → activate
             try:
                 totp_secret = setup_2fa(session, email)
             except Exception as exc:

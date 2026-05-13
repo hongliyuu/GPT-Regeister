@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 OpenAI Auth 模块
-处理 auth.openai.com 域名下的注册请求（步骤4-5、7-8、10、12）
-以及 sentinel.openai.com 的 sentinel token 请求（步骤6、9、11）
+处理 auth.openai.com 域名下的注册请求（步骤4、6-7、9）
+以及 sentinel.openai.com 的 sentinel token 请求（步骤5、8）
 """
 import json
 import logging
@@ -87,15 +87,14 @@ def follow_authorize(session: BrowserSession, authorize_url: str) -> None:
 
 def request_sentinel_token(session: BrowserSession, flow: str) -> dict:
     """
-    步骤6/9/11: 请求 Sentinel Token。
+    步骤5/8: 请求 Sentinel Token。
     POST https://sentinel.openai.com/backend-api/sentinel/req
 
     Args:
         session: 浏览器会话
         flow: 流程类型
-            - "username_password_create": 步骤6
-            - "authorize_continue": 步骤9
-            - "oauth_create_account": 步骤11
+            - "authorize_continue": 步骤5
+            - "oauth_create_account": 步骤8
 
     Returns:
         sentinel 响应 JSON，包含 token、turnstile、proofofwork 等
@@ -241,28 +240,35 @@ def build_sentinel_header(session: BrowserSession, sentinel_resp: dict, flow: st
 #     return data
 
 
-def send_email_otp(session: BrowserSession) -> None:
+def send_email_otp(session: BrowserSession, sentinel_header: str | None = None) -> None:
     """
-    步骤9: 触发发送邮箱验证码。
+    步骤6: 触发发送邮箱验证码。
     GET https://auth.openai.com/api/accounts/email-otp/send
 
     在 follow_authorize 落到 /email-verification 页面之后，
     必须显式调用此接口，OpenAI 服务端才会真正发出 OTP 邮件。
     真实浏览器中这一步由页面 JS 自动完成，协议层需要手动调用。
+
+    Args:
+        session: 浏览器会话
+        sentinel_header: openai-sentinel-token 头的值（authorize_continue flow）
     """
     url = "https://auth.openai.com/api/accounts/email-otp/send"
 
     headers = session.get_auth_headers(referer="https://auth.openai.com/email-verification")
     headers["accept"] = "*/*"
+    if sentinel_header:
+        headers["openai-sentinel-token"] = sentinel_header
 
-    logger.info("[步骤9] 触发发送邮箱验证码...")
+    logger.info("[步骤6] 触发发送邮箱验证码...")
     resp = session.get(url, headers=headers, allow_redirects=True)
-    logger.info(f"[步骤9] 验证码发送请求完成, 状态码: {resp.status_code}")
+    logger.info(f"[步骤6] 验证码发送请求完成, 状态码: {resp.status_code}")
+    logger.debug(f"[步骤6] 响应内容: {resp.text[:500]}")
 
 
 def validate_email_otp(session: BrowserSession, code: str, sentinel_header: str | None = None) -> dict:
     """
-    步骤10: 提交邮箱验证码验证。
+    步骤7: 提交邮箱验证码验证。
     POST https://auth.openai.com/api/accounts/email-otp/validate
 
     Args:
@@ -286,22 +292,22 @@ def validate_email_otp(session: BrowserSession, code: str, sentinel_header: str 
 
     body = json.dumps({"code": code})
 
-    logger.info(f"[步骤10] 提交邮箱验证码: {code}")
+    logger.info(f"[步骤7] 提交邮箱验证码: {code}")
     resp = session.post(url, headers=headers, data=body)
 
     if resp.status_code != 200:
-        logger.error(f"[步骤10] 请求失败, 状态码: {resp.status_code}")
-        logger.error(f"[步骤10] 响应内容: {resp.text}")
+        logger.error(f"[步骤7] 请求失败, 状态码: {resp.status_code}")
+        logger.error(f"[步骤7] 响应内容: {resp.text}")
         resp.raise_for_status()
 
     data = resp.json()
-    logger.info(f"[步骤10] 验证码验证成功: {data.get('page', {}).get('type')}")
+    logger.info(f"[步骤7] 验证码验证成功: {data.get('page', {}).get('type')}")
     return data
 
 
 def create_account(session: BrowserSession, name: str, birthday: str, sentinel_header: str, so_header: str = None) -> dict:
     """
-    步骤12: 提交用户信息，完成注册。
+    步骤9: 提交用户信息，完成注册。
     POST https://auth.openai.com/api/accounts/create_account
 
     Args:
@@ -320,21 +326,21 @@ def create_account(session: BrowserSession, name: str, birthday: str, sentinel_h
     headers["openai-sentinel-token"] = sentinel_header
     if so_header:
         headers["openai-sentinel-so-token"] = so_header
-        logger.info(f"[步骤12] 已添加 openai-sentinel-so-token 头")
+        logger.info(f"[步骤9] 已添加 openai-sentinel-so-token 头")
 
     body = json.dumps({
         "name": name,
         "birthdate": birthday,
     })
 
-    logger.info(f"[步骤12] 提交用户信息, 名称: {name}, 生日: {birthday}")
+    logger.info(f"[步骤9] 提交用户信息, 名称: {name}, 生日: {birthday}")
     resp = session.post(url, headers=headers, data=body)
 
     if resp.status_code != 200:
-        logger.error(f"[步骤12] 请求失败, 状态码: {resp.status_code}")
-        logger.error(f"[步骤12] 响应内容: {resp.text}")
+        logger.error(f"[步骤9] 请求失败, 状态码: {resp.status_code}")
+        logger.error(f"[步骤9] 响应内容: {resp.text}")
         resp.raise_for_status()
 
     data = resp.json()
-    logger.info("[步骤12] 创建接口返回成功，等待 OAuth 回调建立登录态")
+    logger.info("[步骤9] 创建接口返回成功，等待 OAuth 回调建立登录态")
     return data
