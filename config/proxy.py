@@ -15,7 +15,26 @@ import random
 # Cliproxy 新加坡节点。未带 sid 的地址由服务端自行轮换，带 sid 的地址用于并发时分散会话。
 # 统一用 socks5h://（DNS 在代理端解析），避免本地 DNS 错配导致 TLS WRONG_VERSION_NUMBER。
 PROXY_POOL = [
-    "http://qcfvn17921-region-JP-sid-HGRgHgiW-t-5:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
+    "http://qcfvn17921-region-JP:ujgdlt5p@us.lajiaohttp.net:2000",
 ]
 
 
