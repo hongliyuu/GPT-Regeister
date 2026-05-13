@@ -1,0 +1,13 @@
+# 基础运行命令
+# python：使用当前环境里的 Python 解释器
+# .\main.py：运行项目入口脚本
+# -n 10：目标执行 10 次任务
+# --workers 3：同时开启 3 个并发线程处理任务
+# --continue-on-fail：单个任务失败后继续执行后续任务
+python .\main.py -n 10 --workers 3 --continue-on-fail
+
+# 查看更详细过程时，可以增加 --verbose
+# python .\main.py -n 10 --workers 3 --continue-on-fail --verbose
+
+# 单次测试时，建议先把 -n 改成 1，并把 --workers 改成 1
+# python .\main.py -n 1 --workers 1 --continue-on-fail --verbose
