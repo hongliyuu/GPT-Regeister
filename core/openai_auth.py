@@ -241,20 +241,23 @@ def build_sentinel_header(session: BrowserSession, sentinel_resp: dict, flow: st
 #     return data
 
 
-# def send_email_otp(session: BrowserSession) -> None:
-#     """
-#     [备用] 步骤8: 触发发送邮箱验证码。
-#     GET https://auth.openai.com/api/accounts/email-otp/send
-#     """
-#     url = "https://auth.openai.com/api/accounts/email-otp/send"
-#
-#     headers = session.get_auth_navigate_headers(referer="https://auth.openai.com/create-account/password")
-#     headers["sec-fetch-site"] = "same-origin"
-#     headers["sec-fetch-user"] = "?1"
-#
-#     logger.info("[步骤8] 触发发送邮箱验证码...")
-#     resp = session.get(url, headers=headers, allow_redirects=True)
-#     logger.info(f"[步骤8] 验证码发送请求完成, 状态码: {resp.status_code}")
+def send_email_otp(session: BrowserSession) -> None:
+    """
+    步骤9: 触发发送邮箱验证码。
+    GET https://auth.openai.com/api/accounts/email-otp/send
+
+    在 follow_authorize 落到 /email-verification 页面之后，
+    必须显式调用此接口，OpenAI 服务端才会真正发出 OTP 邮件。
+    真实浏览器中这一步由页面 JS 自动完成，协议层需要手动调用。
+    """
+    url = "https://auth.openai.com/api/accounts/email-otp/send"
+
+    headers = session.get_auth_headers(referer="https://auth.openai.com/email-verification")
+    headers["accept"] = "*/*"
+
+    logger.info("[步骤9] 触发发送邮箱验证码...")
+    resp = session.get(url, headers=headers, allow_redirects=True)
+    logger.info(f"[步骤9] 验证码发送请求完成, 状态码: {resp.status_code}")
 
 
 def validate_email_otp(session: BrowserSession, code: str, sentinel_header: str | None = None) -> dict:

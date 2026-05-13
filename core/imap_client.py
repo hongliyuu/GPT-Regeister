@@ -363,38 +363,43 @@ def _recipient_matches(item: dict, target_email: str) -> bool:
     return any(target in str(field).lower() for field in fields)
 
 
+def _fetch_emails_via_client(client, limit: int = 20) -> list[dict]:
+
+    typ, data = client.select(IMAP_MAILBOX)
+    if typ != "OK":
+        raise ImapClientError(f"选择邮箱目录失败: {IMAP_MAILBOX}")
+
+    total = 0
+    if data and data[0]:
+        try:
+            total = int(data[0])
+        except Exception:
+            total = 0
+    if total <= 0:
+        return []
+
+    start = max(1, total - limit + 1)
+    ids = range(total, start - 1, -1)
+    items = []
+    for msg_no in ids:
+        typ, msg_data = client.fetch(str(msg_no), "(RFC822)")
+        if typ != "OK" or not msg_data:
+            continue
+        for part in msg_data:
+            if not isinstance(part, tuple):
+                continue
+            msg = email.message_from_bytes(part[1])
+            items.append(_message_to_item(msg))
+            break
+    return items
+
+
 def fetch_recent_emails(account: ImapAccount, limit: int = 20) -> list[dict]:
     client = None
     try:
         client = _connect(account)
         client.login(account.imap_user, account.password)
-        typ, data = client.select(IMAP_MAILBOX)
-        if typ != "OK":
-            raise ImapClientError(f"选择邮箱目录失败: {IMAP_MAILBOX}")
-
-        total = 0
-        if data and data[0]:
-            try:
-                total = int(data[0])
-            except Exception:
-                total = 0
-        if total <= 0:
-            return []
-
-        start = max(1, total - limit + 1)
-        ids = range(total, start - 1, -1)
-        items = []
-        for msg_no in ids:
-            typ, msg_data = client.fetch(str(msg_no), "(RFC822)")
-            if typ != "OK" or not msg_data:
-                continue
-            for part in msg_data:
-                if not isinstance(part, tuple):
-                    continue
-                msg = email.message_from_bytes(part[1])
-                items.append(_message_to_item(msg))
-                break
-        return items
+        return _fetch_emails_via_client(client, limit=limit)
     finally:
         if client is not None:
             try:
@@ -424,46 +429,70 @@ def fetch_latest_otp(
 
     logger.info(f"[IMAP] 开始轮询注册别名 {email_addr}，登录邮箱 {account.imap_user}，host={account.host}:{account.port}, 最长 {max_wait or OTP_MAX_WAIT}s")
 
-    while time.time() < deadline:
-        try:
-            emails = fetch_recent_emails(account, limit=20)
-        except (imaplib.IMAP4.error, socket.error, OSError) as exc:
-            logger.warning(f"[IMAP] 取信失败: {type(exc).__name__}: {exc}")
-            emails = []
+    imap_client = None
+    try:
+        while time.time() < deadline:
+            if imap_client is None:
+                try:
+                    imap_client = _connect(account)
+                    imap_client.login(account.imap_user, account.password)
+                except (imaplib.IMAP4.error, socket.error, OSError) as exc:
+                    logger.warning(f"[IMAP] 连接/登录失败: {type(exc).__name__}: {exc}，{interval}s 后重试")
+                    time.sleep(interval)
+                    continue
 
-        emails.sort(key=_parse_ts, reverse=True)
-        for item in emails:
-            if not _is_after(item, after_ts):
+            try:
+                emails = _fetch_emails_via_client(imap_client, limit=20)
+            except (imaplib.IMAP4.error, socket.error, OSError) as exc:
+                logger.warning(f"[IMAP] 取信失败: {type(exc).__name__}: {exc}，将重新连接")
+                try:
+                    imap_client.logout()
+                except Exception:
+                    pass
+                imap_client = None
+                emails = []
+                time.sleep(interval)
                 continue
-            if not _recipient_matches(item, email_addr):
-                continue
-            if not looks_like_openai_email(item):
-                continue
-            otp = extract_otp(item)
-            if not otp:
-                continue
-            ts = _parse_ts(item)
-            if ts >= best_ts:
-                best_otp = otp
-                best_ts = ts
-                best_subject = item.get("subject") or ""
-                settle_until = time.time() + settle
-                logger.info(f"[IMAP] 锁定 OTP={otp}, subject={best_subject!r}, 等 {settle}s 看是否有更新邮件")
-            break
 
-        now = time.time()
-        if best_otp and settle_until is not None and now >= settle_until:
-            logger.info(f"[IMAP] settle 完成，返回 OTP={best_otp}, subject={best_subject!r}")
-            return best_otp
+            emails.sort(key=_parse_ts, reverse=True)
+            for item in emails:
+                if not _is_after(item, after_ts):
+                    continue
+                if not _recipient_matches(item, email_addr):
+                    continue
+                if not looks_like_openai_email(item):
+                    continue
+                otp = extract_otp(item)
+                if not otp:
+                    continue
+                ts = _parse_ts(item)
+                if ts >= best_ts:
+                    best_otp = otp
+                    best_ts = ts
+                    best_subject = item.get("subject") or ""
+                    settle_until = time.time() + settle
+                    logger.info(f"[IMAP] 锁定 OTP={otp}, subject={best_subject!r}, 等 {settle}s 看是否有更新邮件")
+                break
 
-        remaining = int(deadline - now)
+            now = time.time()
+            if best_otp and settle_until is not None and now >= settle_until:
+                logger.info(f"[IMAP] settle 完成，返回 OTP={best_otp}, subject={best_subject!r}")
+                return best_otp
+
+            remaining = int(deadline - now)
+            if best_otp:
+                logger.info(f"[IMAP] 已锁定候选 OTP={best_otp}，等待 settle（总剩余 {remaining}s）")
+            else:
+                logger.info(f"[IMAP] 暂未收到发给 {email_addr} 的 OpenAI 邮件，{interval}s 后重试（剩余 {remaining}s）")
+            time.sleep(interval)
+
         if best_otp:
-            logger.info(f"[IMAP] 已锁定候选 OTP={best_otp}，等待 settle（总剩余 {remaining}s）")
-        else:
-            logger.info(f"[IMAP] 暂未收到发给 {email_addr} 的 OpenAI 邮件，{interval}s 后重试（剩余 {remaining}s）")
-        time.sleep(interval)
-
-    if best_otp:
-        logger.warning(f"[IMAP] 总超时但已有候选，返回 OTP={best_otp}")
-        return best_otp
-    raise ImapClientError(f"等待 {email_addr} 的 OTP 超时（>{max_wait or OTP_MAX_WAIT}s）")
+            logger.warning(f"[IMAP] 总超时但已有候选，返回 OTP={best_otp}")
+            return best_otp
+        raise ImapClientError(f"等待 {email_addr} 的 OTP 超时（>{max_wait or OTP_MAX_WAIT}s）")
+    finally:
+        if imap_client is not None:
+            try:
+                imap_client.logout()
+            except Exception:
+                pass

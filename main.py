@@ -19,6 +19,7 @@ from core.session import BrowserSession
 from core.chatgpt_auth import get_providers, get_csrf_token, signin_openai
 from core.openai_auth import (
     follow_authorize,
+    send_email_otp,
     request_sentinel_token,
     build_sentinel_header,
     validate_email_otp,
@@ -214,10 +215,13 @@ def run_registration(
 
         # ==================== 阶段2: OpenAI Auth ====================
         # 步骤4: 跟随 authorize URL（建立 auth.openai.com 的 cookies）
-        # 由于步骤3已携带 login_hint + screen_hint=login_or_signup，
-        # 重定向链会直接走到 /email-verification 并自动触发 OTP 发送，
-        # 不需要 /create-account/password、register_user、单独 send_email_otp 调用。
+        # 重定向链会落到 /email-verification 页面。
         follow_authorize(session, authorize_url)
+
+        # 步骤5: 显式触发 OTP 发送
+        # /email-verification 页面加载后，真实浏览器中的 JS 会调用此接口发 OTP，
+        # 协议层必须手动调用，否则 OpenAI 服务端不会发出验证邮件。
+        send_email_otp(session)
         time.sleep(2)
 
         # ==================== 阶段3: 验证码验证 ====================
