@@ -334,9 +334,13 @@ def run_registration(
         # 创建接口通过前失败：邮箱还可以下次继续尝试。
         # 创建接口通过后失败：远端已消耗这个邮箱，直接废弃，避免重复注册。
         try:
-            from config import EMAIL_SOURCE as _src
-            if _src == "outlook" and email:
-                from core.outlook_client import release_account
+            from config import EMAIL_PROVIDER as _provider
+            release_account = None
+            if _provider == "outlook_oauth":
+                from core.outlook_client import release_account as release_account
+            elif _provider == "imap":
+                from core.imap_client import release_account as release_account
+            if release_account and email:
                 if create_acknowledged:
                     release_account(
                         email,

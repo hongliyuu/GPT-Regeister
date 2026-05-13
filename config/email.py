@@ -1,29 +1,51 @@
 # -*- coding: utf-8 -*-
 """
-Outlook 邮箱账号池配置。
+邮箱 Provider 总配置。
 
-注册邮箱与 OTP 均只走 Outlook 账号池：
-    1. 把邮箱素材写入项目根目录 `用于注册的邮箱.txt`
-    2. 每行格式：email----password----clientId----refreshToken
-    3. 运行注册时会自动导入新增邮箱
+EMAIL_PROVIDER 可选值：
+    - outlook_oauth：Outlook clientId + refreshToken 模式
+    - imap：通用 IMAP 邮箱模式，适合 2925 / 企业邮箱 / 自建邮箱
+    - manual：手动输入邮箱和验证码
+
+通用 IMAP 邮箱素材格式：
+    email----password
+    email----password----imap_host
+    email----password----imap_host----imap_port
+    email----password----imap_host----imap_port----ssl
+
+2925 示例：
+    user@2925.com----邮箱密码
+    user@2925.com----邮箱密码----imap.2925.com----993----true
 """
 
-# True: REGISTER_EMAIL 留空时从 Outlook 账号池自动获取邮箱，OTP 自动收取
-# False: 走人工输入邮箱 + 人工填 OTP 的流程
-USE_EMAIL_SERVICE = True
-
-# 固定为 outlook；保留常量是为了兼容既有调用和落库字段。
-EMAIL_SOURCE = "outlook"
+EMAIL_PROVIDER = "imap"
+USE_EMAIL_SERVICE = EMAIL_PROVIDER != "manual"
+EMAIL_SOURCE = EMAIL_PROVIDER
 
 
 # ============================================================
-# Outlook 模式（外购账号池 + 取信服务）
+# Outlook OAuth 模式（外购账号池 + 取信服务）
 # ============================================================
 
 OUTLOOK_ACCOUNTS_FILE = "用于注册的邮箱.txt"
-
-# 取邮件 API 的根 URL（双协议 graph + imap，自动回退）
 OUTLOOK_API_BASE = "https://mail.chatai.codes"
+
+
+# ============================================================
+# 通用 IMAP 模式（默认按 2925 邮箱配置）
+# ============================================================
+
+IMAP_ACCOUNTS_FILE = "用于注册的邮箱.txt"
+IMAP_STATE_FILE = "用于注册的IMAP邮箱.json"
+IMAP_DEFAULT_HOST = "imap.2925.com"
+IMAP_DEFAULT_PORT = 993
+IMAP_DEFAULT_SSL = True
+IMAP_MAILBOX = "INBOX"
+
+IMAP_ALIAS_ENABLED = True
+IMAP_ALIAS_MODE = "append_random"
+IMAP_ALIAS_RANDOM_LENGTH = 6
+IMAP_ALIAS_SEPARATOR = ""
 
 
 # ============================================================
@@ -32,6 +54,4 @@ OUTLOOK_API_BASE = "https://mail.chatai.codes"
 
 OTP_POLL_INTERVAL = 3
 OTP_MAX_WAIT = 90
-
-# Outlook 双协议取件：抓到一封 OTP 后再多等多少秒看是否有更晚到达的邮件。
 OTP_SETTLE_SECONDS = 5

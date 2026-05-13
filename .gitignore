@@ -52,6 +52,7 @@ accounts_viewer.html
 # Account and mailbox materials
 # 用于注册的邮箱.txt
 用于注册的邮箱.json
+用于注册的IMAP邮箱.json
 注册成功的邮箱.txt
 注册成功的token.txt
 注册成功的邮箱.json

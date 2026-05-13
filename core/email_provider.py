@@ -2,19 +2,31 @@
 """
 邮箱来源调度层。
 
-当前只支持 Outlook 账号池。
+根据 config.EMAIL_PROVIDER 分发到不同邮箱实现：
+    - outlook_oauth：Outlook clientId + refreshToken
+    - imap：通用 IMAP 邮箱，默认适配 2925
+    - manual：手动模式，不自动领取和取码
 """
 import logging
+
+from config import EMAIL_PROVIDER
 
 logger = logging.getLogger(__name__)
 
 
 def acquire_email() -> str:
-    """从 Outlook 账号池领取一个用于注册的邮箱地址。"""
-    from core.outlook_client import pick_account
+    """按当前邮箱 Provider 领取一个用于注册的邮箱地址。"""
+    if EMAIL_PROVIDER == "outlook_oauth":
+        from core.outlook_client import pick_account
+        account = pick_account()
+        return account.email
 
-    account = pick_account()
-    return account.email
+    if EMAIL_PROVIDER == "imap":
+        from core.imap_client import pick_account
+        account = pick_account()
+        return account.email
+
+    raise RuntimeError(f"当前 EMAIL_PROVIDER={EMAIL_PROVIDER!r} 不支持自动领取邮箱")
 
 
 def wait_for_otp(email: str, after_ts: float) -> str:
@@ -25,6 +37,12 @@ def wait_for_otp(email: str, after_ts: float) -> str:
         email: 目标邮箱
         after_ts: UTC 时间戳，只看比这更新的邮件，避免取到旧 OTP
     """
-    from core.outlook_client import fetch_latest_otp
+    if EMAIL_PROVIDER == "outlook_oauth":
+        from core.outlook_client import fetch_latest_otp
+        return fetch_latest_otp(email, after_ts=after_ts)
 
-    return fetch_latest_otp(email, after_ts=after_ts)
+    if EMAIL_PROVIDER == "imap":
+        from core.imap_client import fetch_latest_otp
+        return fetch_latest_otp(email, after_ts=after_ts)
+
+    raise RuntimeError(f"当前 EMAIL_PROVIDER={EMAIL_PROVIDER!r} 不支持自动读取验证码")
