@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": 1,
+    "email": "wdefaa@outlook.com",
+    "password": "y17671115303",
+    "client_id": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+    "refresh_token": "M.C548_BAY.0.U.-CnOlrlE8LYyGTPozzLDAqCybnCVNYPlIUKcah1pr7!nhqjkNJ*pt1bEyIVj1*LWmQX4h7jgofMe7luAri!a8z7SQdIQZ2jFW6NPUs3zFFIytuHVlfGZB6q9uMCgMBhQqj!5wKRyGmmGXDCHKDWLuMKJrSOkzZHFmf0ibWYtzFQcpQaHM0WdPY3TrCwQP*8AQ4oXkCHa8KTdC91Bd0olRmXLWNLyyPhaAg3KA!w0xoD3TrsIti8x28fjIVhFJw7N3PecEiuQ07MrI4JMBpa2J9hOhusMancPITIog72tWoZCU9wgw*fIhoOaQ6DwcvNR3QhiBz4GEAmlIoCmEQMRrv9c7zriQH4lQbO*fISglIfB1I1VLdnMaF6XD7Cse3NSU!Q$$",
+    "status": "available",
+    "used_at": null,
+    "note": "上次失败: Failed to perform, curl: (56) Recv failure: Connection was reset. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.",
+    "imported_at": "2026-05-13T21:12:47",
+    "copy_line": "wdefaa@outlook.com----y17671115303----f8cdef31-a31e-4b4a-93e4-5f571e91255a----M.C548_BAY.0.U.-CnOlrlE8LYyGTPozzLDAqCybnCVNYPlIUKcah1pr7!nhqjkNJ*pt1bEyIVj1*LWmQX4h7jgofMe7luAri!a8z7SQdIQZ2jFW6NPUs3zFFIytuHVlfGZB6q9uMCgMBhQqj!5wKRyGmmGXDCHKDWLuMKJrSOkzZHFmf0ibWYtzFQcpQaHM0WdPY3TrCwQP*8AQ4oXkCHa8KTdC91Bd0olRmXLWNLyyPhaAg3KA!w0xoD3TrsIti8x28fjIVhFJw7N3PecEiuQ07MrI4JMBpa2J9hOhusMancPITIog72tWoZCU9wgw*fIhoOaQ6DwcvNR3QhiBz4GEAmlIoCmEQMRrv9c7zriQH4lQbO*fISglIfB1I1VLdnMaF6XD7Cse3NSU!Q$$"
+  }
+]

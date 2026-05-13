@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / build outputs
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / coverage / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+*.key
+*.pem
+*.crt
+
+# Local runtime data
+accounts/
+注册日志/
+accounts_viewer.html
+注册任务.json
+
+# Account and mailbox materials
+# 用于注册的邮箱.txt
+用于注册的邮箱.json
+注册成功的邮箱.txt
+注册成功的token.txt
+注册成功的邮箱.json
+注册成功整行.txt
+注册成功账号.json
+
+# Logs
+*.log
+logs/

@@ -15,10 +15,7 @@ import random
 # Cliproxy 新加坡节点。未带 sid 的地址由服务端自行轮换，带 sid 的地址用于并发时分散会话。
 # 统一用 socks5h://（DNS 在代理端解析），避免本地 DNS 错配导致 TLS WRONG_VERSION_NUMBER。
 PROXY_POOL = [
-  #  "socks5h://xccf1148614-region-SG:zkvfjxtv@sg2.cliproxy.io:3010",
- ##  "socks5h://xccf1148614-region-SG-sid-D71PqY4i-t-5:zkvfjxtv@sg2.cliproxy.io:3010",
-  ##  "socks5h://xccf1148614-region-SG-sid-jkGUtBeA-t-5:zkvfjxtv@sg2.cliproxy.io:3010",
-  #  "socks5h://xccf1148614-region-SG-sid-HDVrSaZa-t-5:zkvfjxtv@sg2.cliproxy.io:3010",
+    "http://qcfvn17921-region-JP-sid-HGRgHgiW-t-5:ujgdlt5p@us.lajiaohttp.net:2000",
 ]
 
 
