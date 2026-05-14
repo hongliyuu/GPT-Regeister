@@ -27,8 +27,6 @@ from gui.styles import DARK_THEME, LIGHT_THEME
 from gui.worker import RegistrationWorker
 from gui.tabs.register import RegisterTab
 from gui.tabs.email import EmailTab
-from gui.tabs.browser import BrowserTab
-from gui.tabs.openai import OpenAITab
 from gui.tabs.proxy import ProxyTab
 from gui.tabs.flow import FlowTab
 from gui.tabs.twofa import TwoFATab
@@ -343,8 +341,6 @@ class ConfigEditor(QMainWindow):
         self._tabs_list = [
             ("注册",       self._register_tab),
             ("邮箱",       self._email_tab),
-            ("浏览器指纹", BrowserTab()),
-            ("OpenAI 协议",  OpenAITab()),
             ("代理池",     self._proxy_tab),
             ("2FA",            TwoFATab()),
             ("Flow 触发",  FlowTab()),

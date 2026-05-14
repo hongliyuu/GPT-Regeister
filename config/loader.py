@@ -5,6 +5,22 @@ from typing import Any
 
 import yaml
 
+from config.browser import (
+    IMPERSONATE as DEFAULT_IMPERSONATE,
+    REQUEST_TIMEOUT as DEFAULT_REQUEST_TIMEOUT,
+    SEC_CH_UA as DEFAULT_SEC_CH_UA,
+    SEC_CH_UA_MOBILE as DEFAULT_SEC_CH_UA_MOBILE,
+    SEC_CH_UA_PLATFORM as DEFAULT_SEC_CH_UA_PLATFORM,
+    USER_AGENT as DEFAULT_USER_AGENT,
+)
+from config.openai_protocol import (
+    OPENAI_AUDIENCE as DEFAULT_OPENAI_AUDIENCE,
+    OPENAI_CLIENT_ID as DEFAULT_OPENAI_CLIENT_ID,
+    OPENAI_REDIRECT_URI as DEFAULT_OPENAI_REDIRECT_URI,
+    OPENAI_SCOPE as DEFAULT_OPENAI_SCOPE,
+    SENTINEL_SV as DEFAULT_SENTINEL_SV,
+)
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
 
@@ -12,21 +28,6 @@ _config_cache: dict | None = None
 _config_mtime: float = 0
 
 _DEFAULT_CONFIG = {
-    "browser": {
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-        "sec_ch_ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
-        "sec_ch_ua_platform": '"Windows"',
-        "sec_ch_ua_mobile": "?0",
-        "impersonate": "chrome142",
-        "request_timeout": 30,
-    },
-    "openai_protocol": {
-        "client_id": "app_X8zY6vW2pQ9tR3dE7nK1jL5gH",
-        "scope": "openid email profile offline_access model.request model.read organization.read organization.write",
-        "audience": "https://api.openai.com/v1",
-        "redirect_uri": "https://chatgpt.com/api/auth/callback/openai",
-        "sentinel_sv": "20260219f9f6",
-    },
     "register": {
         "email": "",
         "password": "",
@@ -137,27 +138,22 @@ def get_full_config() -> dict:
 # 浏览器配置
 # ============================================================
 
-@property
-def _proxy_USER_AGENT():
-    cfg = _load_yaml()
-    return _env("USER_AGENT", cfg.get("browser", {}).get("user_agent", ""))
-
-USER_AGENT: str = _env("USER_AGENT", _load_yaml().get("browser", {}).get("user_agent", ""))
-SEC_CH_UA: str = _env("SEC_CH_UA", _load_yaml().get("browser", {}).get("sec_ch_ua", ""))
-SEC_CH_UA_PLATFORM: str = _env("SEC_CH_UA_PLATFORM", _load_yaml().get("browser", {}).get("sec_ch_ua_platform", ""))
-SEC_CH_UA_MOBILE: str = _env("SEC_CH_UA_MOBILE", _load_yaml().get("browser", {}).get("sec_ch_ua_mobile", ""))
-IMPERSONATE: str = _env("IMPERSONATE", _load_yaml().get("browser", {}).get("impersonate", ""))
-REQUEST_TIMEOUT: int = int(_env("REQUEST_TIMEOUT", _load_yaml().get("browser", {}).get("request_timeout", 30)))
+USER_AGENT: str = _env("USER_AGENT", DEFAULT_USER_AGENT)
+SEC_CH_UA: str = _env("SEC_CH_UA", DEFAULT_SEC_CH_UA)
+SEC_CH_UA_PLATFORM: str = _env("SEC_CH_UA_PLATFORM", DEFAULT_SEC_CH_UA_PLATFORM)
+SEC_CH_UA_MOBILE: str = _env("SEC_CH_UA_MOBILE", DEFAULT_SEC_CH_UA_MOBILE)
+IMPERSONATE: str = _env("IMPERSONATE", DEFAULT_IMPERSONATE)
+REQUEST_TIMEOUT: int = int(_env("REQUEST_TIMEOUT", _load_yaml().get("network", {}).get("request_timeout", DEFAULT_REQUEST_TIMEOUT)))
 
 # ============================================================
 # OpenAI 协议配置
 # ============================================================
 
-OPENAI_CLIENT_ID: str = _env("OPENAI_CLIENT_ID", _load_yaml().get("openai_protocol", {}).get("client_id", ""))
-OPENAI_SCOPE: str = _env("OPENAI_SCOPE", _load_yaml().get("openai_protocol", {}).get("scope", ""))
-OPENAI_AUDIENCE: str = _env("OPENAI_AUDIENCE", _load_yaml().get("openai_protocol", {}).get("audience", ""))
-OPENAI_REDIRECT_URI: str = _env("OPENAI_REDIRECT_URI", _load_yaml().get("openai_protocol", {}).get("redirect_uri", ""))
-SENTINEL_SV: str = _env("SENTINEL_SV", _load_yaml().get("openai_protocol", {}).get("sentinel_sv", ""))
+OPENAI_CLIENT_ID: str = _env("OPENAI_CLIENT_ID", DEFAULT_OPENAI_CLIENT_ID)
+OPENAI_SCOPE: str = _env("OPENAI_SCOPE", DEFAULT_OPENAI_SCOPE)
+OPENAI_AUDIENCE: str = _env("OPENAI_AUDIENCE", DEFAULT_OPENAI_AUDIENCE)
+OPENAI_REDIRECT_URI: str = _env("OPENAI_REDIRECT_URI", DEFAULT_OPENAI_REDIRECT_URI)
+SENTINEL_SV: str = _env("SENTINEL_SV", DEFAULT_SENTINEL_SV)
 
 # ============================================================
 # 代理池
