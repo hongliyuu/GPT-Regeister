@@ -352,7 +352,7 @@ class ConfigEditor(QMainWindow):
         self.save_btn.clicked.connect(self._save_config)
         self.toggle_log_btn.clicked.connect(self._toggle_log_panel)
         self._register_tab.run_registration.connect(self._run_registration)
-        self._email_tab.provider_changed.connect(self._register_tab.set_manual_mode)
+        self._email_tab.provider_changed.connect(self._on_provider_changed)
 
     def _set_log_visible(self, visible: bool):
         self._log_visible = visible
@@ -367,6 +367,9 @@ class ConfigEditor(QMainWindow):
 
     def _toggle_log_panel(self):
         self._set_log_visible(not self._log_visible)
+
+    def _on_provider_changed(self, provider: str):
+        self._register_tab.set_manual_mode(provider == "manual")
 
     def _load_config(self):
         from config.loader import get_full_config
