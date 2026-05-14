@@ -18,7 +18,6 @@ from pathlib import Path
 
 from config import (
     IMAP_ACCOUNTS,
-    IMAP_ACCOUNTS_FILE,
     IMAP_ALIAS_DOMAIN,
     IMAP_ALIAS_DOMAIN_MODE,
     IMAP_ALIAS_MODE,
@@ -158,17 +157,6 @@ def _read_source_accounts() -> list[ImapAccount]:
     if accounts:
         return accounts
 
-    source = _path(IMAP_ACCOUNTS_FILE)
-    if not source.exists():
-        return []
-    for lineno, raw in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        try:
-            accounts.append(_parse_account_line(line))
-        except Exception as exc:
-            logger.warning(f"[IMAP] {source.name} 第 {lineno} 行跳过: {exc}")
     return accounts
 
 
@@ -235,7 +223,7 @@ def sync_accounts_from_file() -> tuple[int, int]:
 def pick_account() -> ImapAccount:
     inserted, skipped = sync_accounts_from_file()
     if inserted:
-        logger.info(f"[IMAP] 已从 {IMAP_ACCOUNTS_FILE} 导入 {inserted} 个新登录邮箱（跳过 {skipped} 个）")
+        logger.info(f"[IMAP] 已从配置导入 {inserted} 个新登录邮箱（跳过 {skipped} 个）")
     with _LOCK:
         rows = _load_state()
         for row in rows:

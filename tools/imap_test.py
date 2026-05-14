@@ -5,7 +5,6 @@ from pathlib import Path
 
 from config import (
     IMAP_ACCOUNTS,
-    IMAP_ACCOUNTS_FILE,
     IMAP_DEFAULT_HOST,
     IMAP_DEFAULT_PORT,
     IMAP_DEFAULT_SSL,
@@ -46,13 +45,6 @@ def load_account() -> ImapAccount:
             )
         elif isinstance(item, str) and item.strip():
             return _parse_account_line(item)
-
-    source = _path(IMAP_ACCOUNTS_FILE)
-    if source.exists():
-        for raw in source.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if line and not line.startswith("#"):
-                return _parse_account_line(line)
 
     raise RuntimeError("请在 config.yaml 的 email.imap 中配置 login_email 和 login_password")
 

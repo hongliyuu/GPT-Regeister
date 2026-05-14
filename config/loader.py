@@ -108,13 +108,11 @@ EMAIL_PROVIDER: str = _env("EMAIL_PROVIDER", _load_yaml().get("email", {}).get("
 USE_EMAIL_SERVICE: bool = EMAIL_PROVIDER != "manual"
 EMAIL_SOURCE: str = EMAIL_PROVIDER
 
-OUTLOOK_ACCOUNTS_FILE: str = _load_yaml().get("email", {}).get("outlook", {}).get("accounts_file", "")
 OUTLOOK_API_BASE: str = _load_yaml().get("email", {}).get("outlook", {}).get("api_base", "")
 OUTLOOK_ACCOUNTS: list = _load_yaml().get("email", {}).get("outlook", {}).get("accounts", [])
 
 IMAP_LOGIN_EMAIL: str = _load_yaml().get("email", {}).get("imap", {}).get("login_email", "")
 IMAP_LOGIN_PASSWORD: str = _load_yaml().get("email", {}).get("imap", {}).get("login_password", "")
-IMAP_ACCOUNTS_FILE: str = _load_yaml().get("email", {}).get("imap", {}).get("accounts_file", "")
 IMAP_STATE_FILE: str = _load_yaml().get("email", {}).get("imap", {}).get("state_file", "用于注册的IMAP邮箱.json")
 IMAP_DEFAULT_HOST: str = _load_yaml().get("email", {}).get("imap", {}).get("host", "imap.2925.com")
 IMAP_DEFAULT_PORT: int = _load_yaml().get("email", {}).get("imap", {}).get("port", 993)

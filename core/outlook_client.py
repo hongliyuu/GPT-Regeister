@@ -25,7 +25,6 @@ from curl_cffi.requests import Session as CurlSession
 
 from config import (
     OUTLOOK_ACCOUNTS,
-    OUTLOOK_ACCOUNTS_FILE,
     OUTLOOK_API_BASE,
     OTP_POLL_INTERVAL,
     OTP_MAX_WAIT,
@@ -67,30 +66,6 @@ def _http_session() -> CurlSession:
 
 
 # ============================================================
-# 账号文件读写
-# ============================================================
-
-def _parse_accounts_file(path: Path) -> list[OutlookAccount]:
-    """从纯文本文件解析账号，仅在 import_to_db 时使用。"""
-    if not path.exists():
-        return []
-    accounts: list[OutlookAccount] = []
-    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split("----")
-        if len(parts) != 4:
-            logger.warning(
-                f"[Outlook] {path.name} 第 {lineno} 行格式不符（期望 4 段，实际 {len(parts)}），已跳过"
-            )
-            continue
-        email, password, client_id, refresh_token = (p.strip() for p in parts)
-        accounts.append(OutlookAccount(email, password, client_id, refresh_token))
-    return accounts
-
-
-# ============================================================
 # 公共接口：挑账号 / 取 OTP（统一走 DB）
 # ============================================================
 
@@ -118,11 +93,6 @@ def pick_account() -> OutlookAccount:
             if added:
                 logger.info(f"[Outlook] 已从配置导入 {added} 个新账号（跳过 {skipped} 个）")
             imported_from_config = True
-
-    if not imported_from_config:
-        inserted, skipped = import_outlook_from_file()
-        if inserted:
-            logger.info(f"[Outlook] 已自动从 {OUTLOOK_ACCOUNTS_FILE} 导入 {inserted} 个新账号（跳过 {skipped} 个）")
 
     row = claim_next_outlook()
     if row is None:
@@ -166,20 +136,6 @@ def release_account(email: str, status: str = "available", note: str | None = No
     from core.db import release_outlook
     release_outlook(email, status=status, note=note)
     _CONTEXT_CACHE.pop(email, None)
-
-
-def import_outlook_from_file(path: str | Path | None = None) -> tuple[int, int]:
-    """读取一份账号文本文件，全量导入 DB，返回 (新增, 已存在跳过)。"""
-    from core.db import import_outlook_accounts
-    p = Path(path or OUTLOOK_ACCOUNTS_FILE)
-    if not p.is_absolute():
-        p = _PROJECT_ROOT / p
-    accounts = _parse_accounts_file(p)
-    records = [
-        {"email": a.email, "password": a.password, "client_id": a.client_id, "refresh_token": a.refresh_token}
-        for a in accounts
-    ]
-    return import_outlook_accounts(records)
 
 
 def import_outlook_from_text(text: str) -> tuple[int, int]:

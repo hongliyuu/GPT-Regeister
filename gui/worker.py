@@ -27,7 +27,6 @@ class RegistrationWorker(QThread):
             importlib.reload(config)
             importlib.reload(main)
 
-            from config import USE_EMAIL_SERVICE
             from main import configure_logging, prepare_registration_inputs, run_registration
             from core.account_export import create_batch_archive_dir
 
@@ -56,7 +55,7 @@ class RegistrationWorker(QThread):
 
             for r in range(1, self.runs + 1):
                 if self.runs > 1:
-                    self.log_signal.emit(f"")
+                    self.log_signal.emit("")
                     self.log_signal.emit(f"══════════ 第 {r}/{self.runs} 轮 ══════════")
 
                 email, name, birthday = prepare_registration_inputs()
@@ -68,8 +67,9 @@ class RegistrationWorker(QThread):
                         email=email, name=name, birthday=birthday, batch_dir=batch_dir, otp_code=otp_code,
                     )
                 except Exception as e:
-                    self.log_signal.emit(f"[ERROR] 第 {r} 轮异常: {e}")
-                    final_msg = f"第 {r}/{self.runs} 轮异常: {e}"
+                    message = self._format_error_message(e)
+                    self.log_signal.emit(f"[ERROR] 第 {r} 轮异常: {message}")
+                    final_msg = f"第 {r}/{self.runs} 轮异常: {message}"
                     overall_ok = False
                     break
 
@@ -78,8 +78,9 @@ class RegistrationWorker(QThread):
                     self.log_signal.emit(f"第 {r} 轮成功  {email}  Token: {token[:24]}...")
                     final_msg = f"第 {r}/{self.runs} 轮成功  {email}  Token: {token[:24]}..."
                 else:
-                    self.log_signal.emit(f"第 {r} 轮失败  {email}")
-                    final_msg = f"第 {r}/{self.runs} 轮失败  {email}"
+                    error_message = self._format_error_message(result.get("error"))
+                    self.log_signal.emit(f"第 {r} 轮失败  {error_message}")
+                    final_msg = f"第 {r}/{self.runs} 轮失败  {error_message}"
                     overall_ok = False
                     break
 
@@ -87,12 +88,23 @@ class RegistrationWorker(QThread):
             self.finished_signal.emit(overall_ok, final_msg)
 
         except Exception as e:
-            self.finished_signal.emit(False, f"注册异常: {e}")
+            self.finished_signal.emit(False, f"注册异常: {self._format_error_message(e)}")
 
     @staticmethod
     def _requires_manual_otp() -> bool:
         from config import USE_EMAIL_SERVICE
         return not USE_EMAIL_SERVICE
+
+    @staticmethod
+    def _format_error_message(error) -> str:
+        if isinstance(error, BaseException):
+            message = str(error).strip()
+            if not message:
+                return type(error).__name__
+            return f"{type(error).__name__}: {message}"
+
+        message = str(error or "").strip()
+        return message or "注册失败，请检查日志"
 
     def _request_manual_otp(self, email: str) -> str:
         from PySide6.QtCore import QEventLoop

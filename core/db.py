@@ -3,10 +3,10 @@
 本地文件持久化层。
 
 根目录文件分工：
-    - 用于注册的邮箱.txt      仅保留可继续注册的邮箱素材
     - 注册成功的邮箱.txt      仅保存注册成功的邮箱素材，不追加 token
     - 注册成功的token.txt     每行只保存一个 access token
     - 用于注册的邮箱.json     Outlook 账号池完整状态
+    - 用于注册的IMAP邮箱.json IMAP 账号池完整状态
     - 注册成功的邮箱.json     注册成功账号完整状态
 """
 import json
@@ -24,7 +24,6 @@ _LEGACY_DATA_DIR = _PROJECT_ROOT / "data"
 _LOG_DIR = _PROJECT_ROOT / "注册日志"
 
 _OUTLOOK_JSON = _PROJECT_ROOT / "用于注册的邮箱.json"
-_OUTLOOK_TXT = _PROJECT_ROOT / "用于注册的邮箱.txt"
 _ACCOUNTS_JSON = _PROJECT_ROOT / "注册成功的邮箱.json"
 _ACCOUNTS_TXT = _PROJECT_ROOT / "注册成功的邮箱.txt"
 _TOKENS_TXT = _PROJECT_ROOT / "注册成功的token.txt"
@@ -72,15 +71,6 @@ def _next_id(items: list[dict]) -> int:
     return (max(ids) if ids else 0) + 1
 
 
-def _outlook_line(row: dict) -> str:
-    return "----".join([
-        row.get("email") or "",
-        row.get("password") or "",
-        row.get("client_id") or "",
-        row.get("refresh_token") or "",
-    ])
-
-
 def _account_line(row: dict) -> str:
     base = row.get("original_email_line") or row.get("email") or ""
     token = row.get("access_token") or ""
@@ -91,12 +81,6 @@ def _account_line(row: dict) -> str:
 def _registered_email_line(row: dict) -> str:
     """生成注册成功邮箱 TXT 的行内容；token 由注册成功的token.txt 单独保存。"""
     return row.get("original_email_line") or row.get("email") or ""
-
-
-def _sync_outlook_txt(rows: list[dict]) -> None:
-    available_rows = [r for r in rows if r.get("status") == "available"]
-    lines = [_outlook_line(r) for r in sorted(available_rows, key=lambda x: int(x.get("id") or 0))]
-    _OUTLOOK_TXT.write_text(("\n".join(lines) + ("\n" if lines else "")), encoding="utf-8")
 
 
 def _sync_accounts_txt(rows: list[dict]) -> None:
@@ -443,7 +427,6 @@ def _load_outlook() -> list[dict]:
 
 def _save_outlook(rows: list[dict]) -> None:
     _write_json(_OUTLOOK_JSON, rows)
-    _sync_outlook_txt(rows)
     _render_static_viewer(outlook_rows=rows)
 
 
@@ -875,7 +858,7 @@ def migrate_legacy_files() -> dict:
             except Exception:
                 continue
 
-    for txt in (_PROJECT_ROOT / "outlook_accounts.txt", _OUTLOOK_TXT):
+    for txt in (_PROJECT_ROOT / "outlook_accounts.txt",):
         if txt.exists():
             records = []
             for line in txt.read_text(encoding="utf-8").splitlines():
@@ -916,7 +899,6 @@ def db_path() -> Path:
 def storage_paths() -> dict:
     return {
         "outlook_json": str(_OUTLOOK_JSON),
-        "outlook_txt": str(_OUTLOOK_TXT),
         "accounts_json": str(_ACCOUNTS_JSON),
         "accounts_txt": str(_ACCOUNTS_TXT),
         "tokens_txt": str(_TOKENS_TXT),
@@ -931,7 +913,6 @@ def refresh_static_viewer() -> Path:
     with _LOCK:
         outlook_rows = _load_outlook()
         account_rows = _load_accounts()
-        _sync_outlook_txt(outlook_rows)
         _sync_accounts_txt(account_rows)
         _sync_tokens_txt(account_rows)
         return _render_static_viewer(outlook_rows=outlook_rows, account_rows=account_rows)

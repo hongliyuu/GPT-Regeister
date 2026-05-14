@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, Qt
 from PySide6.QtWidgets import (
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -24,6 +26,11 @@ _DOMAIN_MODES = [
     ("使用登录邮箱域名", "default"),
     ("域名转发", "forward"),
 ]
+
+
+_FIELD_WIDTH = 260
+_SHORT_FIELD_WIDTH = 120
+_LABEL_WIDTH = 96
 
 
 def _chinese_to_mode(chinese: str) -> str:
@@ -96,6 +103,7 @@ class EmailTab(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         w = QWidget()
+        w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         self._root_layout = QVBoxLayout(w)
         self._root_layout.setSpacing(12)
         self._root_layout.setContentsMargins(12, 16, 24, 16)
@@ -131,7 +139,9 @@ class EmailTab(QWidget):
         pf = QFormLayout(pg)
         pf.setSpacing(10)
         pf.setContentsMargins(16, 24, 16, 16)
+        pf.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.email_provider_combo = combo(["imap", "outlook_oauth", "manual"])
+        self.email_provider_combo.setFixedWidth(_FIELD_WIDTH)
         pf.addRow("Provider 类型", self.email_provider_combo)
         self._root_layout.addWidget(pg)
 
@@ -150,6 +160,8 @@ class EmailTab(QWidget):
         cred_f.setSpacing(8)
         self.imap_email_edit = line_edit(placeholder="user@2925.com")
         self.imap_password_edit = line_edit(placeholder="邮箱密码或授权码")
+        self.imap_email_edit.setMinimumWidth(_FIELD_WIDTH)
+        self.imap_password_edit.setMinimumWidth(_FIELD_WIDTH)
         self.imap_password_edit.setEchoMode(line_edit().EchoMode.Password)
         cred_f.addRow("邮箱", self.imap_email_edit)
         cred_f.addRow("密码", self.imap_password_edit)
@@ -173,6 +185,9 @@ class EmailTab(QWidget):
         self.imap_port_spin = spin(1, 65535, 993)
         self.imap_ssl_check = check("SSL 加密")
         self.imap_mailbox_edit = line_edit(placeholder="INBOX")
+        self.imap_host_edit.setMinimumWidth(_FIELD_WIDTH)
+        self.imap_mailbox_edit.setMinimumWidth(_FIELD_WIDTH)
+        self.imap_port_spin.setFixedWidth(_SHORT_FIELD_WIDTH)
         srv_f.addRow("IMAP 主机", self.imap_host_edit)
         srv_f.addRow("端口", self.imap_port_spin)
         srv_f.addRow("", self.imap_ssl_check)
@@ -191,52 +206,39 @@ class EmailTab(QWidget):
         alias_hint.setStyleSheet("color: #808090; font-size: 12px;")
         alias_l.addWidget(alias_hint)
 
-        mode_row = QHBoxLayout()
-        mode_row.addWidget(QLabel("地址生成方式："))
-        self.imap_alias_mode_combo = combo([c for c, _ in _ALIAS_MODES])
-        mode_row.addWidget(self.imap_alias_mode_combo)
-        mode_row.addStretch()
-        alias_l.addLayout(mode_row)
+        alias_grid = QGridLayout()
+        alias_grid.setHorizontalSpacing(12)
+        alias_grid.setVerticalSpacing(10)
+        alias_grid.setColumnMinimumWidth(0, _LABEL_WIDTH)
+        alias_grid.setColumnStretch(2, 1)
 
-        # 域名方式
-        domain_mode_row = QHBoxLayout()
-        domain_mode_row.addWidget(QLabel("收件方式："))
         self.imap_domain_mode_combo = combo([c for c, _ in _DOMAIN_MODES])
-        domain_mode_row.addWidget(self.imap_domain_mode_combo)
-        domain_mode_row.addStretch()
-        alias_l.addLayout(domain_mode_row)
-
-        # 域名转发输入（仅域名转发时显示）
-        self._domain_forward_row = self._wrap_widget(QHBoxLayout())
-        _df = self._domain_forward_row.layout()
-        _df.addWidget(QLabel("转发域名："))
+        self.imap_domain_mode_combo.setFixedWidth(_FIELD_WIDTH)
+        self.imap_alias_mode_combo = combo([c for c, _ in _ALIAS_MODES])
+        self.imap_alias_mode_combo.setFixedWidth(_FIELD_WIDTH)
         self.imap_alias_domain_edit = line_edit(placeholder="catchall.com")
-        self.imap_alias_domain_edit.setMaximumWidth(280)
-        _df.addWidget(self.imap_alias_domain_edit)
-        _df.addStretch()
-        self._domain_forward_row.hide()
-        alias_l.addWidget(self._domain_forward_row)
-
-        # 分隔符
-        sep_row = QHBoxLayout()
-        sep_row.addWidget(QLabel("分隔符："))
+        self.imap_alias_domain_edit.setFixedWidth(_FIELD_WIDTH)
         self.imap_alias_sep_edit = line_edit(placeholder=".")
-        self.imap_alias_sep_edit.setMaximumWidth(80)
-        sep_row.addWidget(self.imap_alias_sep_edit)
-        sep_row.addStretch()
-        self._alias_sep_row = self._wrap_widget(sep_row)
-        alias_l.addWidget(self._alias_sep_row)
-
-        # 随机长度
-        len_row = QHBoxLayout()
-        len_row.addWidget(QLabel("随机串长度："))
+        self.imap_alias_sep_edit.setFixedWidth(_SHORT_FIELD_WIDTH)
         self.imap_alias_len_spin = spin(3, 32, 6)
-        len_row.addWidget(self.imap_alias_len_spin)
-        len_row.addStretch()
-        self._alias_len_row = self._wrap_widget(len_row)
-        alias_l.addWidget(self._alias_len_row)
+        self.imap_alias_len_spin.setFixedWidth(_SHORT_FIELD_WIDTH)
 
-        # 预览
+        alias_grid.addWidget(self._field_label("收件方式："), 0, 0)
+        alias_grid.addWidget(self.imap_domain_mode_combo, 0, 1)
+        alias_grid.addWidget(self._field_label("转发域名："), 1, 0)
+        alias_grid.addWidget(self.imap_alias_domain_edit, 1, 1)
+        alias_grid.addWidget(self._field_label("地址生成方式："), 2, 0)
+        alias_grid.addWidget(self.imap_alias_mode_combo, 2, 1)
+        alias_grid.addWidget(self._field_label("分隔符："), 3, 0)
+        alias_grid.addWidget(self.imap_alias_sep_edit, 3, 1, alignment=Qt.AlignLeft)
+        alias_grid.addWidget(self._field_label("随机串长度："), 4, 0)
+        alias_grid.addWidget(self.imap_alias_len_spin, 4, 1, alignment=Qt.AlignLeft)
+        alias_l.addLayout(alias_grid)
+
+        self._domain_forward_label = alias_grid.itemAtPosition(1, 0).widget()
+        self._alias_sep_label = alias_grid.itemAtPosition(3, 0).widget()
+        self._alias_len_label = alias_grid.itemAtPosition(4, 0).widget()
+
         self._alias_preview = QLabel("")
         self._alias_preview.setStyleSheet("color: #6366f1; font-size: 12px; font-weight: 600;")
         alias_l.addWidget(self._alias_preview)
@@ -250,6 +252,13 @@ class EmailTab(QWidget):
         w = QWidget()
         w.setLayout(layout)
         return w
+
+    @staticmethod
+    def _field_label(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        label.setFixedWidth(_LABEL_WIDTH)
+        return label
 
     @staticmethod
     def _make_sub_group(title: str) -> QGroupBox:
@@ -326,7 +335,8 @@ class EmailTab(QWidget):
         mode = _chinese_to_domain_mode(chinese)
         is_forward = mode == "forward"
 
-        self._domain_forward_row.setVisible(is_forward)
+        self._domain_forward_label.setVisible(is_forward)
+        self.imap_alias_domain_edit.setVisible(is_forward)
 
         if is_forward:
             self.imap_alias_mode_combo.setCurrentText("完全随机")
@@ -342,8 +352,10 @@ class EmailTab(QWidget):
         mode = _chinese_to_mode(chinese)
         is_full = mode == "full_random"
 
-        self._alias_sep_row.setVisible(not is_full)
-        self._alias_len_row.setVisible(True)
+        self._alias_sep_label.setVisible(not is_full)
+        self.imap_alias_sep_edit.setVisible(not is_full)
+        self._alias_len_label.setVisible(True)
+        self.imap_alias_len_spin.setVisible(True)
 
         if self._alias_signals_connected:
             self.imap_alias_sep_edit.textChanged.disconnect(self._update_alias_preview)

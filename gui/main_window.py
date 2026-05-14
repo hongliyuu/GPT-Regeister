@@ -151,8 +151,8 @@ class ConfigEditor(QMainWindow):
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground, False)
         self.setWindowTitle("GPT-Regeister")
-        self.resize(920, 760)
-        self.setMinimumSize(780, 600)
+        self.resize(980, 780)
+        self.setMinimumSize(760, 560)
 
         self._tabs_list: list = []
         self._build_ui()
@@ -211,6 +211,8 @@ class ConfigEditor(QMainWindow):
             return super().nativeEvent(event_type, message)
 
         msg = ctypes.wintypes.MSG.from_address(int(message))
+        if msg.message == 0x0083 and self.isMaximized():
+            return True, 0
         if msg.message != 0x0084:
             return super().nativeEvent(event_type, message)
 
@@ -331,7 +333,7 @@ class ConfigEditor(QMainWindow):
         self.log_output = QTextEdit()
         self.log_output.setObjectName("LogOutput")
         self.log_output.setReadOnly(True)
-        self.log_output.setMinimumHeight(120)
+        self.log_output.setMinimumHeight(96)
         self.log_output.setFont(QFont("Consolas", 11))
         log_panel_layout.addWidget(self.log_output)
 
@@ -360,10 +362,11 @@ class ConfigEditor(QMainWindow):
         self.toggle_log_btn.setText("隐藏日志" if visible else "显示日志")
         if visible:
             sizes = self._content_splitter.sizes()
-            if len(sizes) == 2 and sizes[1] == 0:
-                self._content_splitter.setSizes([560, 180])
+            if len(sizes) != 2 or sizes[1] <= 0:
+                total = max(sum(sizes), self.height() - 160)
+                self._content_splitter.setSizes([max(total - 180, 360), 180])
         else:
-            self._content_splitter.setSizes([1, 0])
+            self._content_splitter.setSizes([max(sum(self._content_splitter.sizes()), 1), 0])
 
     def _toggle_log_panel(self):
         self._set_log_visible(not self._log_visible)
