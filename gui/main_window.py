@@ -338,6 +338,7 @@ class ConfigEditor(QMainWindow):
         self._register_tab = RegisterTab()
         self._email_tab = EmailTab()
         self._proxy_tab = ProxyTab()
+        self._proxy_tab.test_log_signal.connect(self._append_log)
 
         self._tabs_list = [
             ("注册",       self._register_tab),
@@ -356,20 +357,24 @@ class ConfigEditor(QMainWindow):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
-        self.load_btn = QPushButton("重新加载")
-        self.load_btn.setToolTip("从 config.yaml 重新读取配置")
-
         self.save_btn = QPushButton("保存配置")
         self.save_btn.setObjectName("PrimaryBtn")
         self.save_btn.setToolTip("将当前配置写入 config.yaml")
 
+        self.load_btn = QPushButton("重新加载")
+        self.load_btn.setToolTip("从 config.yaml 重新读取配置")
+
         self.toggle_log_btn = QPushButton("隐藏日志")
         self.toggle_log_btn.setToolTip("隐藏或显示运行日志")
 
+        self.clear_log_btn = QPushButton("清除日志")
+        self.clear_log_btn.setToolTip("清空运行日志")
+
         btn_row.addWidget(self.save_btn)
         btn_row.addWidget(self.load_btn)
-        btn_row.addWidget(self.toggle_log_btn)
         btn_row.addStretch()
+        btn_row.addWidget(self.toggle_log_btn)
+        btn_row.addWidget(self.clear_log_btn)
 
         main_panel_layout.addLayout(btn_row)
 
@@ -388,6 +393,8 @@ class ConfigEditor(QMainWindow):
         self.log_output.setMinimumHeight(96)
         self.log_output.setFont(QFont("Consolas", 11))
         log_panel_layout.addWidget(self.log_output)
+
+        self.clear_log_btn.clicked.connect(self.log_output.clear)
 
         self._content_splitter.addWidget(main_panel)
         self._content_splitter.addWidget(self.log_panel)
