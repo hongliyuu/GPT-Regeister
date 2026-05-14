@@ -4,7 +4,7 @@ import ctypes
 import ctypes.wintypes
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QSettings, Qt
+from PySide6.QtCore import QEvent, QSettings, Qt, QPoint
 from PySide6.QtGui import QColor, QCloseEvent, QFont, QGuiApplication, QIcon, QMouseEvent, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
@@ -74,10 +74,7 @@ class TitleBar(QWidget):
         self._btn_maximize.clicked.connect(self._toggle_maximize)
         self._btn_close.clicked.connect(self._window.close)
         self._btn_close.installEventFilter(self)
-        self._close_shadow = QGraphicsDropShadowEffect(self._btn_close)
-        self._close_shadow.setBlurRadius(18)
-        self._close_shadow.setOffset(0, 3)
-        self._close_shadow.setColor(QColor(232, 17, 35, 120))
+        self._close_shadow_color = QColor(232, 17, 35, 120)
 
         layout.addWidget(self._btn_theme)
         layout.addWidget(self._btn_minimize)
@@ -97,7 +94,11 @@ class TitleBar(QWidget):
             self._update_maximize_btn()
         elif obj is self._btn_close:
             if event.type() == QEvent.Enter:
-                self._btn_close.setGraphicsEffect(self._close_shadow)
+                shadow = QGraphicsDropShadowEffect(self._btn_close)
+                shadow.setBlurRadius(18)
+                shadow.setOffset(0, 3)
+                shadow.setColor(self._close_shadow_color)
+                self._btn_close.setGraphicsEffect(shadow)
             elif event.type() == QEvent.Leave:
                 self._btn_close.setGraphicsEffect(None)
         return super().eventFilter(obj, event)
@@ -105,15 +106,26 @@ class TitleBar(QWidget):
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
             self._dragging = True
-            self._drag_pos = event.globalPosition().toPoint() - self._window.frameGeometry().topLeft()
+            point = event.globalPosition().toPoint()
+            frame = self._window.frameGeometry()
+            if self._window.isMaximized() and self._window._normal_geometry is not None:
+                normal_width = max(1, self._window._normal_geometry.width())
+                self._drag_pos = QPoint(int(normal_width * 0.5), max(1, point.y() - frame.y()))
+            else:
+                self._drag_pos = point - frame.topLeft()
             event.accept()
 
     def mouseMoveEvent(self, event: QMouseEvent):
         if self._dragging and event.buttons() == Qt.LeftButton:
-            self._window.move(event.globalPosition().toPoint() - self._drag_pos)
+            point = event.globalPosition().toPoint()
+            if self._window.isMaximized():
+                self._window._restore_from_title_drag(point)
+            self._window.move(point - self._drag_pos)
             event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            self._window._snap_to_top_if_needed(event.globalPosition().toPoint())
         self._dragging = False
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -131,8 +143,13 @@ class TitleBar(QWidget):
     def _toggle_maximize(self):
         if self._window.isMaximized():
             self._window.showNormal()
+            self._window._title_bar._update_maximize_btn()
+            if self._window._normal_geometry is not None:
+                self._window.setGeometry(self._window._normal_geometry)
         else:
+            self._window._normal_geometry = self._window.geometry()
             self._window.showMaximized()
+            self._window._title_bar._update_maximize_btn()
 
     def _update_maximize_btn(self):
         if self._window.isMaximized():
@@ -155,6 +172,8 @@ class ConfigEditor(QMainWindow):
         self.setMinimumSize(760, 560)
 
         self._tabs_list: list = []
+        self._normal_geometry = None
+        self.worker = None
         self._build_ui()
 
         self._border_width = _BORDER_WIDTH
@@ -166,8 +185,10 @@ class ConfigEditor(QMainWindow):
 
     def _restore_window_state(self):
         geometry = self._settings.value("window/geometry")
-        if geometry is not None:
+        was_maximized = self._settings.value("window/maximized", False, type=bool)
+        if geometry is not None and not was_maximized:
             self.restoreGeometry(geometry)
+            self._normal_geometry = self.geometry()
 
         screen = QGuiApplication.screenAt(self.frameGeometry().center())
         if screen is None:
@@ -196,9 +217,40 @@ class ConfigEditor(QMainWindow):
             self.showMaximized()
             self._title_bar._update_maximize_btn()
 
+    def _snap_to_top_if_needed(self, global_pos):
+        if self.isMaximized():
+            return
+        screen = QGuiApplication.screenAt(global_pos) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        if global_pos.y() <= available.top() + 2:
+            self._normal_geometry = self.geometry()
+            self.showMaximized()
+            self._title_bar._update_maximize_btn()
+
+    def _restore_from_title_drag(self, global_pos):
+        if not self.isMaximized():
+            return
+        restore_geometry = self._normal_geometry if self._normal_geometry is not None else self.geometry()
+        screen = QGuiApplication.screenAt(global_pos) or QGuiApplication.primaryScreen()
+        self.showNormal()
+        self._title_bar._update_maximize_btn()
+        self.setGeometry(restore_geometry)
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        frame = self.frameGeometry()
+        target_x = global_pos.x() - self._title_bar._drag_pos.x()
+        target_y = max(available.top(), global_pos.y() - self._title_bar._drag_pos.y())
+        target_x = max(available.left(), min(target_x, available.right() - frame.width() + 1))
+        self.move(target_x, target_y)
+        self._normal_geometry = self.geometry()
+
     def closeEvent(self, event: QCloseEvent):
         self._settings.setValue("window/maximized", self.isMaximized())
         if not self.isMaximized():
+            self._normal_geometry = self.geometry()
             self._settings.setValue("window/geometry", self.saveGeometry())
         self._settings.setValue("log_panel/visible", self._log_visible)
         if self._log_visible:
