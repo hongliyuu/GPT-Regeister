@@ -138,17 +138,17 @@ def prepare_registration_inputs() -> tuple[str, str, str]:
         else:
             email = input("请输入注册邮箱: ").strip()
 
-    # 显示名称：未填则随机生成
+    # 姓名：未填则随机生成
     # OpenAI 限制：name_invalid_chars —— 只允许字母和空格，不能含数字/标点
     if not name:
         if USE_EMAIL_SERVICE:
             name = generate_display_name()
-            logger.debug(f"自动生成显示名称: {name}")
+            logger.debug(f"自动生成姓名: {name}")
         else:
-            name = input("请输入显示名称: ").strip()
+            name = input("请输入姓名: ").strip()
 
     if not all([email, name]):
-        raise RuntimeError("邮箱和名称不能为空")
+        raise RuntimeError("邮箱和姓名不能为空")
 
     return email, name, birthday
 

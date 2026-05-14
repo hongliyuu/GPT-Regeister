@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import importlib
 import logging
 
 from PySide6.QtCore import QThread, Signal
@@ -7,16 +8,26 @@ from PySide6.QtCore import QThread, Signal
 class RegistrationWorker(QThread):
     log_signal = Signal(str)
     finished_signal = Signal(bool, str)
+    otp_required_signal = Signal(str)
 
     def __init__(self, runs: int = 1):
         super().__init__()
         self.runs = max(1, runs)
+        self._pending_otp: str | None = None
 
     def run(self):
         from config.loader import invalidate_cache
         invalidate_cache()
 
         try:
+            import config.loader as config_loader
+            import config
+            import main
+            importlib.reload(config_loader)
+            importlib.reload(config)
+            importlib.reload(main)
+
+            from config import USE_EMAIL_SERVICE
             from main import configure_logging, prepare_registration_inputs, run_registration
             from core.account_export import create_batch_archive_dir
 
@@ -41,6 +52,7 @@ class RegistrationWorker(QThread):
 
             overall_ok = True
             final_msg = ""
+            batch_dir = create_batch_archive_dir(count=self.runs, workers=1)
 
             for r in range(1, self.runs + 1):
                 if self.runs > 1:
@@ -48,10 +60,12 @@ class RegistrationWorker(QThread):
                     self.log_signal.emit(f"══════════ 第 {r}/{self.runs} 轮 ══════════")
 
                 email, name, birthday = prepare_registration_inputs()
-                batch_dir = create_batch_archive_dir()
                 try:
+                    otp_code = None
+                    if self._requires_manual_otp():
+                        otp_code = self._request_manual_otp(email)
                     result = run_registration(
-                        email=email, name=name, birthday=birthday, batch_dir=batch_dir,
+                        email=email, name=name, birthday=birthday, batch_dir=batch_dir, otp_code=otp_code,
                     )
                 except Exception as e:
                     self.log_signal.emit(f"[ERROR] 第 {r} 轮异常: {e}")
@@ -74,3 +88,28 @@ class RegistrationWorker(QThread):
 
         except Exception as e:
             self.finished_signal.emit(False, f"注册异常: {e}")
+
+    @staticmethod
+    def _requires_manual_otp() -> bool:
+        from config import USE_EMAIL_SERVICE
+        return not USE_EMAIL_SERVICE
+
+    def _request_manual_otp(self, email: str) -> str:
+        from PySide6.QtCore import QEventLoop
+
+        self._pending_otp = None
+        self.otp_required_signal.emit(email)
+
+        loop = QEventLoop()
+        while self._pending_otp is None:
+            loop.processEvents()
+            self.msleep(100)
+
+        otp = self._pending_otp.strip()
+        self._pending_otp = None
+        if not otp:
+            raise RuntimeError("未输入验证码，已取消注册")
+        return otp
+
+    def submit_manual_otp(self, otp_code: str):
+        self._pending_otp = otp_code

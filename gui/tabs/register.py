@@ -4,7 +4,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -19,6 +18,7 @@ class RegisterTab(QWidget):
 
     def __init__(self):
         super().__init__()
+        self._manual_mode = False
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         form_w = QWidget()
@@ -32,11 +32,24 @@ class RegisterTab(QWidget):
         f.setSpacing(10)
         f.setContentsMargins(16, 24, 16, 16)
         self.reg_email_edit = line_edit(placeholder="留空则从邮箱池领取")
-        self.reg_name_edit = line_edit(placeholder="留空则随机生成英文名")
+        self.reg_name_edit = line_edit(placeholder="留空则随机生成英文姓名")
         self.reg_birthday_edit = line_edit(placeholder="2000-01-01")
-        f.addRow("默认邮箱", self.reg_email_edit)
-        f.addRow("默认显示名称", self.reg_name_edit)
+
+        self._register_email_row = QWidget()
+        email_row_layout = QVBoxLayout(self._register_email_row)
+        email_row_layout.setContentsMargins(0, 0, 0, 0)
+        email_row_layout.addWidget(self.reg_email_edit)
+
+        self._register_name_row = QWidget()
+        name_row_layout = QVBoxLayout(self._register_name_row)
+        name_row_layout.setContentsMargins(0, 0, 0, 0)
+        name_row_layout.addWidget(self.reg_name_edit)
+
+        f.addRow("注册邮箱", self._register_email_row)
+        f.addRow("姓名", self._register_name_row)
         f.addRow("默认生日", self.reg_birthday_edit)
+        self.register_info_group = info_g
+        self.register_info_form = f
         l.addWidget(info_g)
 
         # 运行参数
@@ -66,6 +79,36 @@ class RegisterTab(QWidget):
         self.setLayout(layout)
 
         self.start_btn.clicked.connect(self._on_start)
+        self._apply_mode()
+
+    def _apply_mode(self):
+        self._set_manual_fields_visible(self._manual_mode)
+        if self._manual_mode:
+            self.register_info_group.setTitle("手动注册信息")
+            self.reg_email_edit.setPlaceholderText("必填：手动输入注册邮箱")
+            self.reg_name_edit.setPlaceholderText("必填：手动输入姓名")
+            self.runs_spin.setValue(1)
+            self.runs_spin.setEnabled(False)
+        else:
+            self.register_info_group.setTitle("注册默认信息")
+            self.reg_email_edit.setPlaceholderText("留空则从邮箱池领取")
+            self.reg_name_edit.setPlaceholderText("留空则随机生成英文姓名")
+            self.runs_spin.setEnabled(True)
+
+    def _set_manual_fields_visible(self, visible: bool):
+        self._register_email_row.setVisible(visible)
+        self._register_name_row.setVisible(visible)
+        if hasattr(self.register_info_form, "labelForField"):
+            email_label = self.register_info_form.labelForField(self._register_email_row)
+            name_label = self.register_info_form.labelForField(self._register_name_row)
+            if email_label is not None:
+                email_label.setVisible(visible)
+            if name_label is not None:
+                name_label.setVisible(visible)
+
+    def set_manual_mode(self, manual: bool):
+        self._manual_mode = manual
+        self._apply_mode()
 
     def _on_start(self):
         self.run_registration.emit(self.runs_spin.value())
@@ -79,6 +122,8 @@ class RegisterTab(QWidget):
         self.reg_name_edit.setText(r.get("name", ""))
         self.reg_birthday_edit.setText(r.get("birthday", "2000-01-01"))
         self.runs_spin.setValue(r.get("runs", 1))
+        manual = cfg.get("email", {}).get("provider", "imap") == "manual"
+        self.set_manual_mode(manual)
 
     def collect_config(self, cfg: dict):
         cfg["register"] = {

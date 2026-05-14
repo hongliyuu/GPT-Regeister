@@ -9,9 +9,12 @@ from PySide6.QtGui import QCloseEvent, QFont, QGuiApplication, QIcon, QMouseEven
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
+    QSplitter,
     QStatusBar,
     QTabWidget,
     QTextEdit,
@@ -133,6 +136,7 @@ class ConfigEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self._settings = QSettings(_SETTINGS_ORG, _SETTINGS_APP)
+        self._log_visible = True
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground, False)
         self.setWindowTitle("GPT-Regeister")
@@ -166,6 +170,17 @@ class ConfigEditor(QMainWindow):
                 self.resize(width, height)
                 self.move(available.center() - self.rect().center())
 
+        self._log_visible = self._settings.value("log_panel/visible", True, type=bool)
+        if not self._log_visible:
+            self._set_log_visible(False)
+        else:
+            sizes = self._settings.value("log_panel/splitter_sizes")
+            if isinstance(sizes, list) and len(sizes) == 2:
+                try:
+                    self._content_splitter.setSizes([int(sizes[0]), int(sizes[1])])
+                except (TypeError, ValueError):
+                    pass
+
         if self._settings.value("window/maximized", False, type=bool):
             self.showMaximized()
             self._title_bar._update_maximize_btn()
@@ -174,6 +189,9 @@ class ConfigEditor(QMainWindow):
         self._settings.setValue("window/maximized", self.isMaximized())
         if not self.isMaximized():
             self._settings.setValue("window/geometry", self.saveGeometry())
+        self._settings.setValue("log_panel/visible", self._log_visible)
+        if self._log_visible:
+            self._settings.setValue("log_panel/splitter_sizes", self._content_splitter.sizes())
         self._settings.sync()
         super().closeEvent(event)
 
@@ -242,6 +260,14 @@ class ConfigEditor(QMainWindow):
         content_l.setContentsMargins(20, 16, 20, 16)
         content_l.setSpacing(12)
 
+        self._content_splitter = QSplitter(Qt.Vertical)
+        self._content_splitter.setChildrenCollapsible(False)
+
+        main_panel = QWidget()
+        main_panel_layout = QVBoxLayout(main_panel)
+        main_panel_layout.setContentsMargins(0, 0, 0, 0)
+        main_panel_layout.setSpacing(12)
+
         self.tabs = NoWheelTabWidget()
 
         self._register_tab = RegisterTab()
@@ -260,7 +286,7 @@ class ConfigEditor(QMainWindow):
         for label, widget in self._tabs_list:
             self.tabs.addTab(widget, f"  {label}  ")
 
-        content_l.addWidget(self.tabs)
+        main_panel_layout.addWidget(self.tabs)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
@@ -271,22 +297,39 @@ class ConfigEditor(QMainWindow):
         self.save_btn = QPushButton("保存配置")
         self.save_btn.setToolTip("将当前配置写入 config.yaml")
 
+        self.toggle_log_btn = QPushButton("隐藏日志")
+        self.toggle_log_btn.setToolTip("隐藏或显示运行日志")
+
         btn_row.addWidget(self.load_btn)
+        btn_row.addWidget(self.save_btn)
+        btn_row.addWidget(self.toggle_log_btn)
         btn_row.addStretch()
 
-        content_l.addLayout(btn_row)
+        main_panel_layout.addLayout(btn_row)
+
+        self.log_panel = QWidget()
+        log_panel_layout = QVBoxLayout(self.log_panel)
+        log_panel_layout.setContentsMargins(0, 0, 0, 0)
+        log_panel_layout.setSpacing(8)
 
         log_label = QLabel("运行日志")
         log_label.setStyleSheet("color: #707088; font-size: 12px; margin-top: 4px;")
-        content_l.addWidget(log_label)
+        log_panel_layout.addWidget(log_label)
 
         self.log_output = QTextEdit()
         self.log_output.setObjectName("LogOutput")
         self.log_output.setReadOnly(True)
-        self.log_output.setMinimumHeight(150)
-        self.log_output.setMaximumHeight(220)
+        self.log_output.setMinimumHeight(120)
         self.log_output.setFont(QFont("Consolas", 11))
-        content_l.addWidget(self.log_output)
+        log_panel_layout.addWidget(self.log_output)
+
+        self._content_splitter.addWidget(main_panel)
+        self._content_splitter.addWidget(self.log_panel)
+        self._content_splitter.setStretchFactor(0, 5)
+        self._content_splitter.setStretchFactor(1, 2)
+        self._content_splitter.setSizes([560, 180])
+
+        content_l.addWidget(self._content_splitter)
 
         root.addWidget(content)
 
@@ -295,7 +338,23 @@ class ConfigEditor(QMainWindow):
 
         self.load_btn.clicked.connect(self._load_config)
         self.save_btn.clicked.connect(self._save_config)
+        self.toggle_log_btn.clicked.connect(self._toggle_log_panel)
         self._register_tab.run_registration.connect(self._run_registration)
+        self._email_tab.provider_changed.connect(self._register_tab.set_manual_mode)
+
+    def _set_log_visible(self, visible: bool):
+        self._log_visible = visible
+        self.log_panel.setVisible(visible)
+        self.toggle_log_btn.setText("隐藏日志" if visible else "显示日志")
+        if visible:
+            sizes = self._content_splitter.sizes()
+            if len(sizes) == 2 and sizes[1] == 0:
+                self._content_splitter.setSizes([560, 180])
+        else:
+            self._content_splitter.setSizes([1, 0])
+
+    def _toggle_log_panel(self):
+        self._set_log_visible(not self._log_visible)
 
     def _load_config(self):
         from config.loader import get_full_config
@@ -312,11 +371,29 @@ class ConfigEditor(QMainWindow):
         from config.loader import save_yaml, invalidate_cache
         save_yaml(cfg)
         invalidate_cache()
+
+        for _, tab in self._tabs_list:
+            tab.load_config(cfg)
+
         self.status_bar.showMessage("配置已保存到 config.yaml")
 
     def _run_registration(self, runs: int = 1):
         self._save_config()
         self.log_output.clear()
+
+        cfg = {}
+        for _, tab in self._tabs_list:
+            tab.collect_config(cfg)
+        provider = cfg.get("email", {}).get("provider", "imap")
+        register_cfg = cfg.get("register", {})
+        if provider == "manual":
+            if not register_cfg.get("email", "").strip():
+                QMessageBox.information(self, "提示", "手动模式下请先填写注册邮箱")
+                return
+            if not register_cfg.get("name", "").strip():
+                QMessageBox.information(self, "提示", "手动模式下请先填写姓名")
+                return
+            runs = 1
 
         self.load_btn.setEnabled(False)
         self.save_btn.setEnabled(False)
@@ -326,6 +403,7 @@ class ConfigEditor(QMainWindow):
         self.worker = RegistrationWorker(runs=runs)
         self.worker.log_signal.connect(self._append_log)
         self.worker.finished_signal.connect(self._on_registration_done)
+        self.worker.otp_required_signal.connect(self._prompt_manual_otp)
         self.worker.start()
 
     def _append_log(self, text: str):
@@ -333,6 +411,15 @@ class ConfigEditor(QMainWindow):
         cursor = self.log_output.textCursor()
         cursor.movePosition(QTextCursor.End)
         self.log_output.setTextCursor(cursor)
+
+    def _prompt_manual_otp(self, email: str):
+        self.status_bar.showMessage(f"请为 {email} 输入验证码")
+        self._append_log("")
+        self._append_log(f"[OTP] 请在弹窗中输入 {email} 收到的 6 位验证码")
+        otp_code, ok = QInputDialog.getText(self, "手动输入验证码", f"请输入 {email} 收到的 6 位验证码：")
+        if not ok:
+            otp_code = ""
+        self.worker.submit_manual_otp(otp_code)
 
     def _on_registration_done(self, success: bool, message: str):
         self.load_btn.setEnabled(True)

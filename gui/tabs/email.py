@@ -85,6 +85,8 @@ class TestIMAPWorker(QThread):
 
 
 class EmailTab(QWidget):
+    provider_changed = Signal(str)
+
     def __init__(self):
         super().__init__()
         self._test_worker: TestIMAPWorker | None = None
@@ -281,7 +283,8 @@ class EmailTab(QWidget):
         self._manual_group.hide()
         l = QVBoxLayout(self._manual_group)
         l.setContentsMargins(16, 24, 16, 20)
-        hint = QLabel("手动模式下需要每次输入邮箱和验证码。\n此模式不自动领取邮箱、不自动读取 OTP。")
+        hint = QLabel("手动模式下需要手动填写注册邮箱、姓名，并在注册过程中手动输入验证码。")
+        hint.setWordWrap(True)
         hint.setStyleSheet("color: #808090; font-size: 13px;")
         l.addWidget(hint)
         self._root_layout.addWidget(self._manual_group)
@@ -311,6 +314,7 @@ class EmailTab(QWidget):
                 group.setVisible(provider != "manual")
             else:
                 group.setVisible(key == provider)
+        self.provider_changed.emit(provider)
 
     # ── 别名模式切换 ──
 
