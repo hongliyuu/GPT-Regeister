@@ -17,7 +17,10 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from config import (
+    IMAP_ACCOUNTS,
     IMAP_ACCOUNTS_FILE,
+    IMAP_ALIAS_DOMAIN,
+    IMAP_ALIAS_DOMAIN_MODE,
     IMAP_ALIAS_ENABLED,
     IMAP_ALIAS_MODE,
     IMAP_ALIAS_RANDOM_LENGTH,
@@ -25,6 +28,8 @@ from config import (
     IMAP_DEFAULT_HOST,
     IMAP_DEFAULT_PORT,
     IMAP_DEFAULT_SSL,
+    IMAP_LOGIN_EMAIL,
+    IMAP_LOGIN_PASSWORD,
     IMAP_MAILBOX,
     IMAP_STATE_FILE,
     OTP_MAX_WAIT,
@@ -83,10 +88,20 @@ def _make_alias(login_email: str) -> str:
     if not sep:
         raise ImapClientError(f"邮箱格式错误，无法生成别名: {login_email}")
     suffix = _random_suffix(IMAP_ALIAS_RANDOM_LENGTH)
+
+    if IMAP_ALIAS_DOMAIN_MODE == "forward" and IMAP_ALIAS_DOMAIN:
+        target_domain = IMAP_ALIAS_DOMAIN
+    else:
+        target_domain = domain
+
+    if IMAP_ALIAS_MODE == "full_random":
+        return f"{suffix}@{target_domain}"
     if IMAP_ALIAS_MODE == "append_random":
-        return f"{local}{IMAP_ALIAS_SEPARATOR}{suffix}@{domain}"
+        return f"{local}{IMAP_ALIAS_SEPARATOR}{suffix}@{target_domain}"
+    if IMAP_ALIAS_MODE == "prefix_random":
+        return f"{suffix}{IMAP_ALIAS_SEPARATOR}{local}@{target_domain}"
     if IMAP_ALIAS_MODE == "plus_random":
-        return f"{local}+{suffix}@{domain}"
+        return f"{local}+{suffix}@{target_domain}"
     raise ImapClientError(f"不支持的 IMAP_ALIAS_MODE: {IMAP_ALIAS_MODE}")
 
 
@@ -112,10 +127,43 @@ def _parse_account_line(line: str) -> ImapAccount:
 
 
 def _read_source_accounts() -> list[ImapAccount]:
+    accounts: list[ImapAccount] = []
+
+    if IMAP_LOGIN_EMAIL and IMAP_LOGIN_PASSWORD:
+        accounts.append(ImapAccount(
+            email=IMAP_LOGIN_EMAIL,
+            login_email=IMAP_LOGIN_EMAIL,
+            password=IMAP_LOGIN_PASSWORD,
+            host=IMAP_DEFAULT_HOST,
+            port=IMAP_DEFAULT_PORT,
+            ssl=IMAP_DEFAULT_SSL,
+        ))
+
+    for item in IMAP_ACCOUNTS:
+        if isinstance(item, dict):
+            try:
+                accounts.append(ImapAccount(
+                    email=item.get("email", ""),
+                    login_email=item.get("login_email") or item.get("email", ""),
+                    password=item.get("password", ""),
+                    host=item.get("host") or IMAP_DEFAULT_HOST,
+                    port=int(item.get("port") or IMAP_DEFAULT_PORT),
+                    ssl=bool(item.get("ssl", IMAP_DEFAULT_SSL)),
+                ))
+            except Exception as exc:
+                logger.warning(f"[IMAP] 配置行跳过: {exc}")
+        elif isinstance(item, str) and item.strip():
+            try:
+                accounts.append(_parse_account_line(item))
+            except Exception as exc:
+                logger.warning(f"[IMAP] 配置行跳过: {exc}")
+
+    if accounts:
+        return accounts
+
     source = _path(IMAP_ACCOUNTS_FILE)
     if not source.exists():
         return []
-    accounts: list[ImapAccount] = []
     for lineno, raw in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -210,7 +258,7 @@ def pick_account() -> ImapAccount:
                 logger.info(f"[IMAP] 选中注册别名: {account.email}，登录邮箱: {account.imap_user}（id={row.get('id')}）")
                 return account
     summary = pool_summary()
-    raise ImapClientError(f"IMAP 邮箱池没有可用账号: {summary}. 请把登录邮箱写入 {IMAP_ACCOUNTS_FILE}")
+    raise ImapClientError(f"IMAP 邮箱池没有可用账号: {summary}. 请在 config.yaml 的 email.imap 中配置 login_email 和 login_password")
 
 
 def release_account(email_addr: str, status: str = "available", note: str | None = None) -> None:

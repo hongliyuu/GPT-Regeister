@@ -1,8 +1,17 @@
 # -*- coding: utf-8 -*-
 import sys
 import time
+from pathlib import Path
 
-from config import IMAP_ACCOUNTS_FILE, IMAP_DEFAULT_HOST, IMAP_DEFAULT_PORT, IMAP_DEFAULT_SSL
+from config import (
+    IMAP_ACCOUNTS,
+    IMAP_ACCOUNTS_FILE,
+    IMAP_DEFAULT_HOST,
+    IMAP_DEFAULT_PORT,
+    IMAP_DEFAULT_SSL,
+    IMAP_LOGIN_EMAIL,
+    IMAP_LOGIN_PASSWORD,
+)
 from core.imap_client import ImapAccount, _make_alias, _parse_ts, _parse_account_line, _recipient_matches, fetch_recent_emails
 from core.otp_utils import extract_otp, looks_like_openai_email
 
@@ -15,13 +24,42 @@ def load_account() -> ImapAccount:
     if len(sys.argv) >= 2:
         return _parse_account_line(sys.argv[1].strip())
 
-    with open(IMAP_ACCOUNTS_FILE, "r", encoding="utf-8") as f:
-        for raw in f:
+    if IMAP_LOGIN_EMAIL and IMAP_LOGIN_PASSWORD:
+        return ImapAccount(
+            email=IMAP_LOGIN_EMAIL,
+            login_email=IMAP_LOGIN_EMAIL,
+            password=IMAP_LOGIN_PASSWORD,
+            host=IMAP_DEFAULT_HOST,
+            port=IMAP_DEFAULT_PORT,
+            ssl=IMAP_DEFAULT_SSL,
+        )
+
+    for item in IMAP_ACCOUNTS:
+        if isinstance(item, dict):
+            return ImapAccount(
+                email=item.get("email", ""),
+                login_email=item.get("login_email") or item.get("email", ""),
+                password=item.get("password", ""),
+                host=item.get("host") or IMAP_DEFAULT_HOST,
+                port=int(item.get("port") or IMAP_DEFAULT_PORT),
+                ssl=bool(item.get("ssl", IMAP_DEFAULT_SSL)),
+            )
+        elif isinstance(item, str) and item.strip():
+            return _parse_account_line(item)
+
+    source = _path(IMAP_ACCOUNTS_FILE)
+    if source.exists():
+        for raw in source.read_text(encoding="utf-8").splitlines():
             line = raw.strip()
             if line and not line.startswith("#"):
                 return _parse_account_line(line)
 
-    raise RuntimeError(f"{IMAP_ACCOUNTS_FILE} 没有可测试的邮箱行")
+    raise RuntimeError("请在 config.yaml 的 email.imap 中配置 login_email 和 login_password")
+
+
+def _path(value: str) -> Path:
+    p = Path(value)
+    return p if p.is_absolute() else Path(__file__).resolve().parent.parent / p
 
 
 def fingerprint(item: dict) -> str:
@@ -75,7 +113,7 @@ def main() -> int:
     print("-" * 60)
     print(f"请现在手动发送一封邮件到: {alias_email}")
     print(f"脚本会持续检测 {MAX_WAIT}s，每 {POLL_INTERVAL}s 检查一次。")
-    print("检测规则：优先匹配别名；如果发现启动后新邮件，即使收件人字段不含别名也会打印，避免误以为卡死。")
+    print("检测规则：优先匹配别名；如果发现启动后新邮件，即使收件人字段不含别名也会打印，避免误认为卡死。")
     print("-" * 60)
 
     seen = set()

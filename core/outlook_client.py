@@ -24,6 +24,7 @@ from pathlib import Path
 from curl_cffi.requests import Session as CurlSession
 
 from config import (
+    OUTLOOK_ACCOUNTS,
     OUTLOOK_ACCOUNTS_FILE,
     OUTLOOK_API_BASE,
     OTP_POLL_INTERVAL,
@@ -100,16 +101,35 @@ def pick_account() -> OutlookAccount:
     """
     from core.db import claim_next_outlook, outlook_pool_summary
 
-    inserted, skipped = import_outlook_from_file()
-    if inserted:
-        logger.info(f"[Outlook] 已自动从 {OUTLOOK_ACCOUNTS_FILE} 导入 {inserted} 个新账号（跳过 {skipped} 个）")
+    imported_from_config = False
+    if OUTLOOK_ACCOUNTS:
+        from core.db import import_outlook_accounts
+        records = []
+        for item in OUTLOOK_ACCOUNTS:
+            if isinstance(item, dict) and item.get("email") and item.get("password"):
+                records.append({
+                    "email": item["email"],
+                    "password": item["password"],
+                    "client_id": item.get("client_id", ""),
+                    "refresh_token": item.get("refresh_token", ""),
+                })
+        if records:
+            added, skipped = import_outlook_accounts(records)
+            if added:
+                logger.info(f"[Outlook] 已从配置导入 {added} 个新账号（跳过 {skipped} 个）")
+            imported_from_config = True
+
+    if not imported_from_config:
+        inserted, skipped = import_outlook_from_file()
+        if inserted:
+            logger.info(f"[Outlook] 已自动从 {OUTLOOK_ACCOUNTS_FILE} 导入 {inserted} 个新账号（跳过 {skipped} 个）")
 
     row = claim_next_outlook()
     if row is None:
         summary = outlook_pool_summary()
         raise OutlookClientError(
             f"Outlook 账号池没有可用账号: {summary}. "
-            f"请把新邮箱写入 {OUTLOOK_ACCOUNTS_FILE}，程序会在下次注册前自动导入。"
+            f"请在 config.yaml 的 email.outlook.accounts 中配置 Outlook 账号信息。"
         )
 
     account = OutlookAccount(
