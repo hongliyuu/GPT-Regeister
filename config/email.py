@@ -34,7 +34,6 @@ OUTLOOK_API_BASE = "https://mail.chatai.codes"
 # 通用 IMAP 模式（默认按 2925 邮箱配置）
 # ============================================================
 
-IMAP_STATE_FILE = "用于注册的IMAP邮箱.json"
 IMAP_DEFAULT_HOST = "imap.2925.com"
 IMAP_DEFAULT_PORT = 993
 IMAP_DEFAULT_SSL = True

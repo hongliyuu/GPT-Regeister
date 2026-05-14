@@ -139,7 +139,6 @@ twofa:
 | --- | --- |
 | `accounts/` | 每次运行生成的批次归档目录 |
 | `用于注册的邮箱.json` | Outlook 账号池状态 |
-| `用于注册的IMAP邮箱.json` | IMAP 账号池状态 |
 | `注册成功的邮箱.json` | 成功账号汇总 |
 | `注册成功的邮箱.txt` | 成功邮箱汇总 |
 | `注册成功的token.txt` | access token 汇总 |
@@ -153,7 +152,6 @@ twofa:
 - `email.provider` 是否正确
 - `email.imap.login_email` / `email.imap.login_password` 是否填写
 - `email.imap.accounts` 或 `email.outlook.accounts` 是否有账号
-- 状态文件中账号是否都已变成 `used` 或 `failed`
 
 ### OTP 超时
 

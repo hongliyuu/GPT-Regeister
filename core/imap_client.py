@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import email
 import imaplib
-import json
 import logging
 import random
 import socket
@@ -9,12 +8,11 @@ import ssl
 import string
 import threading
 import time
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import timezone
 from email.header import decode_header
 from email.message import Message
 from email.utils import parsedate_to_datetime
-from pathlib import Path
 
 from config import (
     IMAP_ACCOUNTS,
@@ -29,7 +27,6 @@ from config import (
     IMAP_LOGIN_EMAIL,
     IMAP_LOGIN_PASSWORD,
     IMAP_MAILBOX,
-    IMAP_STATE_FILE,
     OTP_MAX_WAIT,
     OTP_POLL_INTERVAL,
     OTP_SETTLE_SECONDS,
@@ -38,7 +35,6 @@ from core.otp_utils import extract_otp, looks_like_openai_email
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _LOCK = threading.RLock()
 _CONTEXT_CACHE: dict[str, "ImapAccount"] = {}
 
@@ -59,15 +55,6 @@ class ImapAccount:
 
 class ImapClientError(RuntimeError):
     pass
-
-
-def _path(value: str | Path) -> Path:
-    p = Path(value)
-    return p if p.is_absolute() else _PROJECT_ROOT / p
-
-
-def _now() -> str:
-    return datetime.now().isoformat(timespec="seconds")
 
 
 def _parse_bool(value: str) -> bool:
@@ -160,132 +147,40 @@ def _read_source_accounts() -> list[ImapAccount]:
     return accounts
 
 
-def _load_state() -> list[dict]:
-    state = _path(IMAP_STATE_FILE)
-    if not state.exists():
-        return []
-    try:
-        data = json.loads(state.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    return data if isinstance(data, list) else []
+def pick_account() -> ImapAccount:
+    accounts = _read_source_accounts()
+    if not accounts:
+        raise ImapClientError("IMAP 没有可用登录邮箱，请在 config.yaml 的 email.imap 中配置 login_email/login_password 或 accounts")
 
-
-def _save_state(rows: list[dict]) -> None:
-    state = _path(IMAP_STATE_FILE)
-    state.write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-def _row_to_account(row: dict) -> ImapAccount:
-    return ImapAccount(
-        email=row["email"],
-        login_email=row.get("login_email") or row["email"],
-        password=row["password"],
-        host=row.get("host") or IMAP_DEFAULT_HOST,
-        port=int(row.get("port") or IMAP_DEFAULT_PORT),
-        ssl=bool(row.get("ssl", IMAP_DEFAULT_SSL)),
+    account = random.choice(accounts)
+    alias_email = _make_alias(account.imap_user)
+    alias_account = ImapAccount(
+        email=alias_email,
+        login_email=account.imap_user,
+        password=account.password,
+        host=account.host,
+        port=account.port,
+        ssl=account.ssl,
     )
 
-
-def sync_accounts_from_file() -> tuple[int, int]:
     with _LOCK:
-        rows = _load_state()
-        existing = {str(row.get("login_email") or row.get("email", "")).lower() for row in rows}
-        inserted = 0
-        skipped = 0
-        next_id = max((int(row.get("id", 0) or 0) for row in rows), default=0) + 1
-        for account in _read_source_accounts():
-            key = account.imap_user.lower()
-            if key in existing:
-                skipped += 1
-                continue
-            row = asdict(account)
-            row.update({
-                "email": account.imap_user,
-                "login_email": account.imap_user,
-                "id": next_id,
-                "status": "available",
-                "used_at": None,
-                "note": "",
-                "imported_at": _now(),
-                "last_alias": None,
-                "aliases": [],
-            })
-            rows.append(row)
-            existing.add(key)
-            inserted += 1
-            next_id += 1
-        if inserted:
-            _save_state(rows)
-        return inserted, skipped
+        _CONTEXT_CACHE[alias_email.lower()] = alias_account
 
-
-def pick_account() -> ImapAccount:
-    inserted, skipped = sync_accounts_from_file()
-    if inserted:
-        logger.info(f"[IMAP] 已从配置导入 {inserted} 个新登录邮箱（跳过 {skipped} 个）")
-    with _LOCK:
-        rows = _load_state()
-        for row in rows:
-            if row.get("status") == "available":
-                alias_email = _make_alias(row.get("login_email") or row["email"])
-                aliases = row.get("aliases") if isinstance(row.get("aliases"), list) else []
-                aliases.append({"email": alias_email, "created_at": _now(), "status": "used"})
-                row["email"] = alias_email
-                row["last_alias"] = alias_email
-                row["aliases"] = aliases
-                row["status"] = "used"
-                row["used_at"] = _now()
-                row["note"] = ""
-                _save_state(rows)
-                account = _row_to_account(row)
-                _CONTEXT_CACHE[account.email] = account
-                logger.info(f"[IMAP] 选中注册地址: {account.email}，登录邮箱: {account.imap_user}（id={row.get('id')}）")
-                return account
-    summary = pool_summary()
-    raise ImapClientError(f"IMAP 邮箱池没有可用账号: {summary}. 请在 config.yaml 的 email.imap 中配置 login_email 和 login_password")
+    logger.info(f"[IMAP] 选中注册地址: {alias_account.email}，登录邮箱: {alias_account.imap_user}")
+    return alias_account
 
 
 def release_account(email_addr: str, status: str = "available", note: str | None = None) -> None:
-    with _LOCK:
-        rows = _load_state()
-        for row in rows:
-            if str(row.get("email", "")).lower() == email_addr.lower() or str(row.get("last_alias", "")).lower() == email_addr.lower():
-                row["status"] = status
-                row["note"] = note or ""
-                if status == "available":
-                    row["used_at"] = None
-                aliases = row.get("aliases") if isinstance(row.get("aliases"), list) else []
-                for item in aliases:
-                    if str(item.get("email", "")).lower() == email_addr.lower():
-                        item["status"] = status
-                        item["note"] = note or ""
-                _save_state(rows)
-                break
-    _CONTEXT_CACHE.pop(email_addr, None)
+    _CONTEXT_CACHE.pop(email_addr.lower(), None)
 
 
 def pool_summary() -> dict:
-    rows = _load_state()
-    result = {"available": 0, "used": 0, "failed": 0, "total": len(rows)}
-    for row in rows:
-        status = row.get("status")
-        if status in result:
-            result[status] += 1
-    return result
+    accounts = _read_source_accounts()
+    return {"available": len(accounts), "used": 0, "failed": 0, "total": len(accounts)}
 
 
 def get_account_context(email_addr: str) -> ImapAccount | None:
-    if email_addr in _CONTEXT_CACHE:
-        return _CONTEXT_CACHE[email_addr]
-    sync_accounts_from_file()
-    rows = _load_state()
-    for row in rows:
-        if str(row.get("email", "")).lower() == email_addr.lower() or str(row.get("last_alias", "")).lower() == email_addr.lower():
-            account = _row_to_account(row)
-            _CONTEXT_CACHE[account.email] = account
-            return account
-    return None
+    return _CONTEXT_CACHE.get(email_addr.lower())
 
 
 def _connect(account: ImapAccount):

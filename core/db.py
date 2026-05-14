@@ -6,7 +6,6 @@
     - 注册成功的邮箱.txt      仅保存注册成功的邮箱素材，不追加 token
     - 注册成功的token.txt     每行只保存一个 access token
     - 用于注册的邮箱.json     Outlook 账号池完整状态
-    - 用于注册的IMAP邮箱.json IMAP 账号池完整状态
     - 注册成功的邮箱.json     注册成功账号完整状态
 """
 import json

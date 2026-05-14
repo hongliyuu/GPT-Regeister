@@ -49,7 +49,6 @@ _DEFAULT_CONFIG = {
             "login_email": "",
             "login_password": "",
             "accounts": [],
-            "state_file": "用于注册的IMAP邮箱.json",
             "host": "imap.2925.com",
             "port": 993,
             "ssl": True,
@@ -192,7 +191,6 @@ OUTLOOK_ACCOUNTS: list = _load_yaml().get("email", {}).get("outlook", {}).get("a
 
 IMAP_LOGIN_EMAIL: str = _load_yaml().get("email", {}).get("imap", {}).get("login_email", "")
 IMAP_LOGIN_PASSWORD: str = _load_yaml().get("email", {}).get("imap", {}).get("login_password", "")
-IMAP_STATE_FILE: str = _load_yaml().get("email", {}).get("imap", {}).get("state_file", "用于注册的IMAP邮箱.json")
 IMAP_DEFAULT_HOST: str = _load_yaml().get("email", {}).get("imap", {}).get("host", "imap.2925.com")
 IMAP_DEFAULT_PORT: int = _load_yaml().get("email", {}).get("imap", {}).get("port", 993)
 IMAP_DEFAULT_SSL: bool = _load_yaml().get("email", {}).get("imap", {}).get("ssl", True)
