@@ -21,7 +21,6 @@ from config import (
     IMAP_ACCOUNTS_FILE,
     IMAP_ALIAS_DOMAIN,
     IMAP_ALIAS_DOMAIN_MODE,
-    IMAP_ALIAS_ENABLED,
     IMAP_ALIAS_MODE,
     IMAP_ALIAS_RANDOM_LENGTH,
     IMAP_ALIAS_SEPARATOR,
@@ -82,8 +81,6 @@ def _random_suffix(length: int) -> str:
 
 
 def _make_alias(login_email: str) -> str:
-    if not IMAP_ALIAS_ENABLED:
-        return login_email
     local, sep, domain = login_email.partition("@")
     if not sep:
         raise ImapClientError(f"邮箱格式错误，无法生成别名: {login_email}")
@@ -255,7 +252,7 @@ def pick_account() -> ImapAccount:
                 _save_state(rows)
                 account = _row_to_account(row)
                 _CONTEXT_CACHE[account.email] = account
-                logger.info(f"[IMAP] 选中注册别名: {account.email}，登录邮箱: {account.imap_user}（id={row.get('id')}）")
+                logger.info(f"[IMAP] 选中注册地址: {account.email}，登录邮箱: {account.imap_user}（id={row.get('id')}）")
                 return account
     summary = pool_summary()
     raise ImapClientError(f"IMAP 邮箱池没有可用账号: {summary}. 请在 config.yaml 的 email.imap 中配置 login_email 和 login_password")

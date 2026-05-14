@@ -116,6 +116,8 @@ class EmailTab(QWidget):
         self.email_provider_combo.currentTextChanged.connect(self._on_provider_changed)
         self.imap_alias_mode_combo.currentTextChanged.connect(self._on_alias_mode_changed)
         self.imap_domain_mode_combo.currentTextChanged.connect(self._on_domain_mode_changed)
+        self.imap_alias_domain_edit.textChanged.connect(self._update_alias_preview)
+        self.imap_email_edit.textChanged.connect(self._update_alias_preview)
         self.test_btn.clicked.connect(self._run_imap_test)
 
         self._on_provider_changed("imap")
@@ -177,26 +179,28 @@ class EmailTab(QWidget):
         srv_f.addRow("邮箱目录", self.imap_mailbox_edit)
         l.addWidget(srv_g)
 
-        # 别名配置
-        alias_g = QGroupBox("注册别名规则")
+        # 注册地址配置
+        alias_g = QGroupBox("注册地址规则")
         alias_g.setObjectName("AliasGroup")
         alias_l = QVBoxLayout(alias_g)
         alias_l.setContentsMargins(12, 20, 12, 12)
         alias_l.setSpacing(8)
 
-        self.imap_alias_check = check("启用别名（注册时生成临时代收地址）")
+        alias_hint = QLabel("注册时始终生成随机地址：支持别名的邮箱可用前后缀追加，域名转发邮箱建议使用完全随机。")
+        alias_hint.setWordWrap(True)
+        alias_hint.setStyleSheet("color: #808090; font-size: 12px;")
+        alias_l.addWidget(alias_hint)
 
         mode_row = QHBoxLayout()
-        mode_row.addWidget(QLabel("别名生成方式："))
+        mode_row.addWidget(QLabel("地址生成方式："))
         self.imap_alias_mode_combo = combo([c for c, _ in _ALIAS_MODES])
         mode_row.addWidget(self.imap_alias_mode_combo)
         mode_row.addStretch()
-        alias_l.addWidget(self.imap_alias_check)
         alias_l.addLayout(mode_row)
 
         # 域名方式
         domain_mode_row = QHBoxLayout()
-        domain_mode_row.addWidget(QLabel("域名方式："))
+        domain_mode_row.addWidget(QLabel("收件方式："))
         self.imap_domain_mode_combo = combo([c for c, _ in _DOMAIN_MODES])
         domain_mode_row.addWidget(self.imap_domain_mode_combo)
         domain_mode_row.addStretch()
@@ -382,7 +386,7 @@ class EmailTab(QWidget):
             alias = f"{local}{separator}{demo_suffix}@{target_domain}"
         else:
             alias = f"{demo_suffix}{separator}{local}@{target_domain}"
-        self._alias_preview.setText(f"示例别名：{alias}")
+        self._alias_preview.setText(f"示例注册地址：{alias}")
 
     # ── 配置加载 ──
 
@@ -397,7 +401,6 @@ class EmailTab(QWidget):
         self.imap_port_spin.setValue(imap.get("port", 993))
         self.imap_ssl_check.setChecked(imap.get("ssl", True))
         self.imap_mailbox_edit.setText(imap.get("mailbox", "INBOX"))
-        self.imap_alias_check.setChecked(imap.get("alias_enabled", True))
         self.imap_alias_mode_combo.setCurrentText(_mode_to_chinese(imap.get("alias_mode", "append_random")))
         self.imap_domain_mode_combo.setCurrentText(_domain_mode_to_chinese(imap.get("alias_domain_mode", "default")))
         self.imap_alias_domain_edit.setText(imap.get("alias_domain", ""))
@@ -454,7 +457,7 @@ class EmailTab(QWidget):
                 "port": self.imap_port_spin.value(),
                 "ssl": self.imap_ssl_check.isChecked(),
                 "mailbox": self.imap_mailbox_edit.text(),
-                "alias_enabled": self.imap_alias_check.isChecked(),
+                "alias_enabled": True,
                 "alias_mode": mode,
                 "alias_domain_mode": domain_mode,
                 "alias_domain": self.imap_alias_domain_edit.text().strip(),
