@@ -451,6 +451,14 @@ class ConfigEditor(QMainWindow):
         self.status_bar.showMessage("配置已保存到 config.yaml")
 
     def _run_registration(self, runs: int = 1):
+        from core.sentinel_runner import check_node_available
+
+        node_ok, node_message = check_node_available()
+        if not node_ok:
+            QMessageBox.warning(self, "Node.js 环境缺失", node_message)
+            self.status_bar.showMessage("Node.js 环境缺失，无法开始注册")
+            return
+
         self._save_config()
         self.log_output.clear()
 

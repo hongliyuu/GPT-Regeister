@@ -13,6 +13,7 @@ Sentinel Runner 适配层
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,10 +26,10 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
-# 项目根目录（core 的上一级）
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-# Node 资源放在项目根的 sentinel/ 子目录下
-_SENTINEL_DIR = _PROJECT_ROOT / "sentinel"
+_APP_ROOT = Path(getattr(sys, "_MEIPASS", _PROJECT_ROOT))
+_RUNTIME_ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else _PROJECT_ROOT
+_SENTINEL_DIR = _APP_ROOT / "sentinel"
 _RUNNER_PATH = _SENTINEL_DIR / "sentinel-runner.js"
 _SDK_PATH = _SENTINEL_DIR / "sdk.js"
 
@@ -43,15 +44,73 @@ _FLOW_PAGE_URL = {
 _RUNNER_TIMEOUT = 60
 
 
+def _candidate_node_paths() -> list[str]:
+    binary_name = "node.exe" if sys.platform.startswith("win") else "node"
+    candidates = [
+        str(_RUNTIME_ROOT / "node" / binary_name),
+        str(_APP_ROOT / "node" / binary_name),
+        str(_PROJECT_ROOT / "node" / binary_name),
+    ]
+
+    if not sys.platform.startswith("win"):
+        return candidates
+
+    for key in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"):
+        root = os.environ.get(key)
+        if root:
+            candidates.append(str(Path(root) / "nodejs" / "node.exe"))
+    candidates.extend([
+        r"C:\Program Files\nodejs\node.exe",
+        r"C:\Program Files (x86)\nodejs\node.exe",
+    ])
+    return candidates
+
+
 def _resolve_node_executable() -> str:
-    """
-    解析 Node 可执行文件名。Windows 下默认 node.exe，类 Unix 为 node。
-    允许通过环境变量 NODE_EXECUTABLE 覆盖。
-    """
     override = os.environ.get("NODE_EXECUTABLE")
     if override:
         return override
+
+    for candidate in _candidate_node_paths():
+        if Path(candidate).exists():
+            return candidate
+
+    names = ["node.exe", "node"] if sys.platform.startswith("win") else ["node"]
+    for name in names:
+        resolved = shutil.which(name)
+        if resolved:
+            return resolved
+
     return "node.exe" if sys.platform.startswith("win") else "node"
+
+
+def check_node_available() -> tuple[bool, str]:
+    node = _resolve_node_executable()
+    try:
+        proc = subprocess.run(
+            [node, "--version"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=10,
+        )
+    except FileNotFoundError:
+        return False, _node_missing_message()
+    except Exception as exc:
+        return False, f"Node 环境检测失败：{type(exc).__name__}: {exc}"
+
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        return False, f"Node 环境检测失败：{detail or f'退出码 {proc.returncode}'}"
+
+    return True, (proc.stdout or "").strip() or node
+
+
+def _node_missing_message() -> str:
+    return (
+        "未找到 Node 可执行文件。打包版本请将 node/node.exe 放在程序目录或资源目录；"
+        "开发环境请安装 Node.js LTS，或通过 NODE_EXECUTABLE 环境变量指定绝对路径。"
+    )
 
 
 def _ensure_runner_environment() -> None:
@@ -152,10 +211,7 @@ def generate_sentinel_token(
                 f"sentinel-runner.js 执行超时（>{_RUNNER_TIMEOUT}s），flow={flow}"
             ) from exc
         except FileNotFoundError as exc:
-            raise RuntimeError(
-                "未找到 Node 可执行文件，请确认已安装 Node.js 并加入 PATH，"
-                "或通过 NODE_EXECUTABLE 环境变量指定绝对路径。"
-            ) from exc
+            raise RuntimeError(_node_missing_message()) from exc
 
         if proc.returncode != 0:
             stderr = (proc.stderr or "").strip()

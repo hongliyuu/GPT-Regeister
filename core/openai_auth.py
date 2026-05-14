@@ -109,29 +109,46 @@ def request_sentinel_token(session: BrowserSession, flow: str) -> dict:
 
     headers = session.get_sentinel_headers()
 
-    logger.info(f"[Sentinel] 请求 sentinel token, flow={flow}")
-    resp = session.post(url, headers=headers, data=body)
-    resp.raise_for_status()
+    last_exc: Exception | None = None
+    for attempt in range(1, _FOLLOW_AUTH_MAX_ATTEMPTS + 1):
+        try:
+            logger.info(f"[Sentinel] 请求 sentinel token, flow={flow} (尝试 {attempt}/{_FOLLOW_AUTH_MAX_ATTEMPTS})")
+            resp = session.post(url, headers=headers, data=body)
+            resp.raise_for_status()
 
-    data = resp.json()
-    logger.info(f"[Sentinel] 获取 sentinel token 成功, persona={data.get('persona')}")
+            data = resp.json()
+            logger.info(f"[Sentinel] 获取 sentinel token 成功, persona={data.get('persona')}")
 
-    if data.get("proofofwork", {}).get("required"):
-        seed = data["proofofwork"]["seed"]
-        difficulty = data["proofofwork"]["difficulty"]
-        logger.info(f"[Sentinel] 需要 PoW: seed={seed}, difficulty={difficulty}")
+            if data.get("proofofwork", {}).get("required"):
+                seed = data["proofofwork"]["seed"]
+                difficulty = data["proofofwork"]["difficulty"]
+                logger.info(f"[Sentinel] 需要 PoW: seed={seed}, difficulty={difficulty}")
 
-    # 增强诊断：哪些反爬机制被要求
-    requires = []
-    if data.get("turnstile", {}).get("required"):
-        requires.append("turnstile")
-    if data.get("so", {}).get("required"):
-        requires.append("so")
-    if data.get("proofofwork", {}).get("required"):
-        requires.append("pow")
-    logger.info(f"[Sentinel] 服务端要求项: {requires or '无'}")
+            requires = []
+            if data.get("turnstile", {}).get("required"):
+                requires.append("turnstile")
+            if data.get("so", {}).get("required"):
+                requires.append("so")
+            if data.get("proofofwork", {}).get("required"):
+                requires.append("pow")
+            logger.info(f"[Sentinel] 服务端要求项: {requires or '无'}")
 
-    return data
+            return data
+
+        except Exception as exc:
+            last_exc = exc
+            if not _is_transient_network_error(exc):
+                raise
+            if attempt >= _FOLLOW_AUTH_MAX_ATTEMPTS:
+                break
+            backoff = _FOLLOW_AUTH_BACKOFF_BASE ** (attempt - 1)
+            logger.warning(
+                f"[Sentinel] 临时性网络错误 ({type(exc).__name__}: {str(exc)[:120]})，"
+                f"{backoff:.1f}s 后重试..."
+            )
+            time.sleep(backoff)
+
+    raise last_exc if last_exc else RuntimeError("步骤5/8 Sentinel 请求重试耗尽")
 
 
 def build_sentinel_header(session: BrowserSession, sentinel_resp: dict, flow: str) -> tuple:
@@ -261,7 +278,7 @@ def send_email_otp(session: BrowserSession, sentinel_header: str | None = None) 
         headers["openai-sentinel-token"] = sentinel_header
 
     logger.info("[步骤6] 触发发送邮箱验证码...")
-    resp = session.get(url, headers=headers, allow_redirects=True)
+    resp = session.get(url, headers=headers)
     logger.info(f"[步骤6] 验证码发送请求完成, 状态码: {resp.status_code}")
     logger.debug(f"[步骤6] 响应内容: {resp.text[:500]}")
 

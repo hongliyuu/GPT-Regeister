@@ -169,6 +169,10 @@ class ProxyTab(QWidget):
         hint2.setStyleSheet("color: #808099; font-size: 11px; margin-bottom: 8px;")
         l.addWidget(hint2)
 
+        remark = QLabel("V2Ray 代理请开启 TUN 模式，Clash 代理请开启虚拟网卡模式")
+        remark.setStyleSheet("color: #808099; font-size: 11px; margin-bottom: 8px;")
+        l.addWidget(remark)
+
         self.proxy_edit = multi_line_edit(
             placeholder="http://user:pass@host:port", max_h=99999
         )
