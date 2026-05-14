@@ -143,7 +143,7 @@ def prepare_registration_inputs() -> tuple[str, str, str]:
     if not name:
         if USE_EMAIL_SERVICE:
             name = generate_display_name()
-            logger.debug(f"自动生成姓名: {name}")
+            logger.info(f"[注册] 自动生成用户名: {name}")
         else:
             name = input("请输入姓名: ").strip()
 
