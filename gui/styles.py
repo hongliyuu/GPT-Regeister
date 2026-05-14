@@ -385,6 +385,11 @@ QPushButton#TitleBarBtnClose:hover {
     color: #ffffff;
 }
 
+QPushButton#TitleBarBtnClose:pressed {
+    background-color: #c50f1f;
+    color: #ffffff;
+}
+
 QMainWindow {
     border: 1px solid #2a2b4a;
 }
@@ -770,4 +775,14 @@ QPushButton#TitleBarBtnClose {
     min-height: 32px;
     max-width: 36px;
     max-height: 32px;
+}
+
+QPushButton#TitleBarBtnClose:hover {
+    background-color: #e81123;
+    color: #ffffff;
+}
+
+QPushButton#TitleBarBtnClose:pressed {
+    background-color: #c2414b;
+    color: #ffffff;
 }"""

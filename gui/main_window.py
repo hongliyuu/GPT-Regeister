@@ -5,9 +5,10 @@ import ctypes.wintypes
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QSettings, Qt
-from PySide6.QtGui import QCloseEvent, QFont, QGuiApplication, QIcon, QMouseEvent, QTextCursor
+from PySide6.QtGui import QColor, QCloseEvent, QFont, QGuiApplication, QIcon, QMouseEvent, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -72,6 +73,11 @@ class TitleBar(QWidget):
         self._btn_minimize.clicked.connect(self._window.showMinimized)
         self._btn_maximize.clicked.connect(self._toggle_maximize)
         self._btn_close.clicked.connect(self._window.close)
+        self._btn_close.installEventFilter(self)
+        self._close_shadow = QGraphicsDropShadowEffect(self._btn_close)
+        self._close_shadow.setBlurRadius(18)
+        self._close_shadow.setOffset(0, 3)
+        self._close_shadow.setColor(QColor(232, 17, 35, 120))
 
         layout.addWidget(self._btn_theme)
         layout.addWidget(self._btn_minimize)
@@ -89,6 +95,11 @@ class TitleBar(QWidget):
     def eventFilter(self, obj, event):
         if obj is self._window and event.type() == QEvent.WindowStateChange:
             self._update_maximize_btn()
+        elif obj is self._btn_close:
+            if event.type() == QEvent.Enter:
+                self._btn_close.setGraphicsEffect(self._close_shadow)
+            elif event.type() == QEvent.Leave:
+                self._btn_close.setGraphicsEffect(None)
         return super().eventFilter(obj, event)
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -295,13 +306,14 @@ class ConfigEditor(QMainWindow):
         self.load_btn.setToolTip("从 config.yaml 重新读取配置")
 
         self.save_btn = QPushButton("保存配置")
+        self.save_btn.setObjectName("PrimaryBtn")
         self.save_btn.setToolTip("将当前配置写入 config.yaml")
 
         self.toggle_log_btn = QPushButton("隐藏日志")
         self.toggle_log_btn.setToolTip("隐藏或显示运行日志")
 
-        btn_row.addWidget(self.load_btn)
         btn_row.addWidget(self.save_btn)
+        btn_row.addWidget(self.load_btn)
         btn_row.addWidget(self.toggle_log_btn)
         btn_row.addStretch()
 
