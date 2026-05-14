@@ -11,19 +11,100 @@ _CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
 _config_cache: dict | None = None
 _config_mtime: float = 0
 
+_DEFAULT_CONFIG = {
+    "browser": {
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        "sec_ch_ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+        "sec_ch_ua_platform": '"Windows"',
+        "sec_ch_ua_mobile": "?0",
+        "impersonate": "chrome142",
+        "request_timeout": 30,
+    },
+    "openai_protocol": {
+        "client_id": "app_X8zY6vW2pQ9tR3dE7nK1jL5gH",
+        "scope": "openid email profile offline_access model.request model.read organization.read organization.write",
+        "audience": "https://api.openai.com/v1",
+        "redirect_uri": "https://chatgpt.com/api/auth/callback/openai",
+        "sentinel_sv": "20260219f9f6",
+    },
+    "register": {
+        "email": "",
+        "password": "",
+        "name": "",
+        "birthday": "2000-01-01",
+        "runs": 1,
+    },
+    "email": {
+        "provider": "imap",
+        "use_email_service": True,
+        "email_source": "imap",
+        "outlook": {
+            "api_base": "https://mail.chatai.codes",
+            "accounts": [],
+        },
+        "imap": {
+            "login_email": "",
+            "login_password": "",
+            "accounts": [],
+            "state_file": "用于注册的IMAP邮箱.json",
+            "host": "imap.2925.com",
+            "port": 993,
+            "ssl": True,
+            "mailbox": "INBOX",
+            "alias_mode": "append_random",
+            "alias_domain_mode": "default",
+            "alias_domain": "",
+            "alias_random_length": 6,
+            "alias_separator": "",
+        },
+        "otp": {
+            "poll_interval": 3,
+            "max_wait": 90,
+            "settle_seconds": 5,
+        },
+    },
+    "proxy": {
+        "pool": [],
+    },
+    "twofa": {
+        "enabled": False,
+    },
+    "flow_trigger": {
+        "enabled": True,
+        "url": "",
+        "bearer": "",
+        "cookie": "",
+        "payload": {
+            "action": "chat",
+        },
+        "timeout": 30,
+    },
+}
+
+
+def _write_default_config() -> dict:
+    data = yaml.safe_load(yaml.dump(_DEFAULT_CONFIG, allow_unicode=True, sort_keys=False)) or {}
+    _CONFIG_PATH.write_text(
+        yaml.dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        encoding="utf-8",
+    )
+    return data
+
+
 
 def _load_yaml() -> dict:
     global _config_cache, _config_mtime
-    mtime = _CONFIG_PATH.stat().st_mtime if _CONFIG_PATH.exists() else 0
+    if not _CONFIG_PATH.exists():
+        _config_cache = _write_default_config()
+        _config_mtime = _CONFIG_PATH.stat().st_mtime
+        return _config_cache
+
+    mtime = _CONFIG_PATH.stat().st_mtime
     if _config_cache is not None and mtime == _config_mtime:
         return _config_cache
 
-    if _CONFIG_PATH.exists():
-        raw = _CONFIG_PATH.read_text(encoding="utf-8")
-        _config_cache = yaml.safe_load(raw) or {}
-    else:
-        _config_cache = {}
-
+    raw = _CONFIG_PATH.read_text(encoding="utf-8")
+    _config_cache = yaml.safe_load(raw) or {}
     _config_mtime = mtime
     return _config_cache
 
