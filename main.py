@@ -159,6 +159,7 @@ def run_registration(
     birthday: str = "2000-01-01",
     proxy: str = None,
     otp_code: str = None,
+    otp_provider=None,
     batch_dir=None,
 ):
     """
@@ -231,15 +232,18 @@ def run_registration(
         time.sleep(2)
 
         # ==================== 阶段4: 验证码验证 ====================
-        # 等待验证码：USE_EMAIL_SERVICE=True 时自动从 IMAP 取件，否则人工输入
+        # 等待验证码：USE_EMAIL_SERVICE=True 时自动从 IMAP 取件，否则在发送成功后再人工输入
         if otp_code is None:
             if USE_EMAIL_SERVICE:
                 logger.info(f"[OTP] 等待验证码：{email}")
                 otp_code = wait_for_otp(email, after_ts=otp_after_ts)
             else:
                 logger.info("")
-                logger.info("[OTP] 请检查邮箱，输入收到的 6 位验证码:")
-                otp_code = input(">>> 验证码: ").strip()
+                logger.info("[OTP] 验证码已触发发送，请检查邮箱并输入收到的 6 位验证码")
+                if otp_provider is not None:
+                    otp_code = otp_provider(email).strip()
+                else:
+                    otp_code = input(">>> 验证码: ").strip()
 
         # 步骤7: 提交验证码（带 sentinel-token 头）
         validate_result = validate_email_otp(session, otp_code, sentinel_header_5)

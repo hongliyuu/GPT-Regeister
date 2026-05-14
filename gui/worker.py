@@ -60,11 +60,13 @@ class RegistrationWorker(QThread):
 
                 email, name, birthday = prepare_registration_inputs()
                 try:
-                    otp_code = None
-                    if self._requires_manual_otp():
-                        otp_code = self._request_manual_otp(email)
+                    otp_provider = self._request_manual_otp if self._requires_manual_otp() else None
                     result = run_registration(
-                        email=email, name=name, birthday=birthday, batch_dir=batch_dir, otp_code=otp_code,
+                        email=email,
+                        name=name,
+                        birthday=birthday,
+                        batch_dir=batch_dir,
+                        otp_provider=otp_provider,
                     )
                 except Exception as e:
                     message = self._format_error_message(e)
