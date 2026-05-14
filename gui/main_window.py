@@ -450,7 +450,7 @@ class ConfigEditor(QMainWindow):
 
         self.status_bar.showMessage("配置已保存到 config.yaml")
 
-    def _run_registration(self, runs: int = 1):
+    def _run_registration(self, runs: int = 1, workers: int = 1, continue_on_fail: bool = False):
         from core.sentinel_runner import check_node_available
 
         node_ok, node_message = check_node_available()
@@ -479,9 +479,10 @@ class ConfigEditor(QMainWindow):
         self.load_btn.setEnabled(False)
         self.save_btn.setEnabled(False)
         self._register_tab.set_running(True)
-        self.status_bar.showMessage(f"正在执行注册（共 {runs} 轮）……")
+        workers_info = f"，{workers} 线程" if workers > 1 else ""
+        self.status_bar.showMessage(f"正在执行注册（共 {runs} 轮{workers_info}）……")
 
-        self.worker = RegistrationWorker(runs=runs)
+        self.worker = RegistrationWorker(runs=runs, workers=workers, continue_on_fail=continue_on_fail)
         self.worker.log_signal.connect(self._append_log)
         self.worker.finished_signal.connect(self._on_registration_done)
         self.worker.otp_required_signal.connect(self._prompt_manual_otp)

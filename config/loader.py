@@ -34,6 +34,8 @@ _DEFAULT_CONFIG = {
         "name": "",
         "birthday": "2000-01-01",
         "runs": 1,
+        "workers": 1,
+        "continue_on_fail": False,
     },
     "email": {
         "provider": "imap",

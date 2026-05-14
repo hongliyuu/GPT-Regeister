@@ -10,9 +10,11 @@ class RegistrationWorker(QThread):
     finished_signal = Signal(bool, str)
     otp_required_signal = Signal(str)
 
-    def __init__(self, runs: int = 1):
+    def __init__(self, runs: int = 1, workers: int = 1, continue_on_fail: bool = False):
         super().__init__()
         self.runs = max(1, runs)
+        self.workers = max(1, workers)
+        self.continue_on_fail = continue_on_fail
         self._pending_otp: str | None = None
 
     def run(self):
@@ -51,7 +53,11 @@ class RegistrationWorker(QThread):
 
             overall_ok = True
             final_msg = ""
-            batch_dir = create_batch_archive_dir(count=self.runs, workers=1)
+            batch_dir = create_batch_archive_dir(count=self.runs, workers=self.workers)
+
+            if self.workers > 1:
+                self._run_parallel_batch(batch_dir)
+                return
 
             for r in range(1, self.runs + 1):
                 if self.runs > 1:
@@ -71,6 +77,10 @@ class RegistrationWorker(QThread):
                 except Exception as e:
                     message = self._format_error_message(e)
                     self.log_signal.emit(f"[ERROR] 第 {r} 轮异常: {message}")
+                    if self.continue_on_fail:
+                        final_msg = f"第 {r}/{self.runs} 轮异常(已跳过): {message}"
+                        overall_ok = False
+                        continue
                     final_msg = f"第 {r}/{self.runs} 轮异常: {message}"
                     overall_ok = False
                     break
@@ -82,6 +92,10 @@ class RegistrationWorker(QThread):
                 else:
                     error_message = self._format_error_message(result.get("error"))
                     self.log_signal.emit(f"第 {r} 轮失败  {error_message}")
+                    if self.continue_on_fail:
+                        final_msg = f"第 {r}/{self.runs} 轮失败(已跳过)  {error_message}"
+                        overall_ok = False
+                        continue
                     final_msg = f"第 {r}/{self.runs} 轮失败  {error_message}"
                     overall_ok = False
                     break
@@ -107,6 +121,23 @@ class RegistrationWorker(QThread):
 
         message = str(error or "").strip()
         return message or "注册失败，请检查日志"
+
+    def _run_parallel_batch(self, batch_dir):
+        import config
+        import main
+
+        if not config.USE_EMAIL_SERVICE:
+            self.log_signal.emit("[ERROR] 并发注册需要开启邮箱自动取件，请先配置")
+            self.finished_signal.emit(False, "并发注册需要开启邮箱自动取件")
+            return
+
+        self.log_signal.emit(f"[批量] 并发注册：目标 {self.runs}，线程 {self.workers}")
+        results = main.run_parallel_batch(self.runs, self.workers, delay=0, continue_on_fail=self.continue_on_fail, batch_dir=batch_dir)
+
+        success_count = sum(1 for r in results if main._is_success(r))
+        overall_ok = success_count == self.runs
+        final_msg = f"并发注册完成：成功 {success_count}/{len(results)}"
+        self.finished_signal.emit(overall_ok, final_msg)
 
     def _request_manual_otp(self, email: str) -> str:
         from PySide6.QtCore import QEventLoop

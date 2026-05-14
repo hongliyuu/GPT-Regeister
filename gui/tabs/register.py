@@ -10,11 +10,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.widgets import line_edit, spin
+from gui.widgets import check, line_edit, spin
 
 
 class RegisterTab(QWidget):
-    run_registration = Signal(int)
+    run_registration = Signal(int, int, bool)
 
     def __init__(self):
         super().__init__()
@@ -58,7 +58,12 @@ class RegisterTab(QWidget):
         rf.setSpacing(10)
         rf.setContentsMargins(16, 24, 16, 16)
         self.runs_spin = spin(1, 100, 1)
+        self.workers_spin = spin(1, 20, 1)
+        self.workers_spin.setToolTip("并发注册线程数，需配合邮箱自动取件使用")
+        self.continue_on_fail_check = check("单个失败后继续注册下一个", False)
         rf.addRow("注册轮次", self.runs_spin)
+        rf.addRow("并发线程数", self.workers_spin)
+        rf.addRow("", self.continue_on_fail_check)
         l.addWidget(run_g)
 
         # 启动按钮
@@ -89,11 +94,17 @@ class RegisterTab(QWidget):
             self.reg_name_edit.setPlaceholderText("必填：手动输入姓名")
             self.runs_spin.setValue(1)
             self.runs_spin.setEnabled(False)
+            self.workers_spin.setValue(1)
+            self.workers_spin.setEnabled(False)
+            self.continue_on_fail_check.setChecked(False)
+            self.continue_on_fail_check.setEnabled(False)
         else:
             self.register_info_group.setTitle("注册默认信息")
             self.reg_email_edit.setPlaceholderText("留空则从邮箱池领取")
             self.reg_name_edit.setPlaceholderText("留空则随机生成英文姓名")
             self.runs_spin.setEnabled(True)
+            self.workers_spin.setEnabled(True)
+            self.continue_on_fail_check.setEnabled(True)
 
     def _set_manual_fields_visible(self, visible: bool):
         self._register_email_row.setVisible(visible)
@@ -111,7 +122,11 @@ class RegisterTab(QWidget):
         self._apply_mode()
 
     def _on_start(self):
-        self.run_registration.emit(self.runs_spin.value())
+        self.run_registration.emit(
+            self.runs_spin.value(),
+            self.workers_spin.value(),
+            self.continue_on_fail_check.isChecked(),
+        )
 
     def set_running(self, running: bool):
         self.start_btn.setEnabled(not running)
@@ -122,6 +137,8 @@ class RegisterTab(QWidget):
         self.reg_name_edit.setText(r.get("name", ""))
         self.reg_birthday_edit.setText(r.get("birthday", "2000-01-01"))
         self.runs_spin.setValue(r.get("runs", 1))
+        self.workers_spin.setValue(r.get("workers", 1))
+        self.continue_on_fail_check.setChecked(r.get("continue_on_fail", False))
         manual = cfg.get("email", {}).get("provider", "imap") == "manual"
         self.set_manual_mode(manual)
 
@@ -132,4 +149,6 @@ class RegisterTab(QWidget):
             "name": self.reg_name_edit.text(),
             "birthday": self.reg_birthday_edit.text(),
             "runs": self.runs_spin.value(),
+            "workers": self.workers_spin.value(),
+            "continue_on_fail": self.continue_on_fail_check.isChecked(),
         }
