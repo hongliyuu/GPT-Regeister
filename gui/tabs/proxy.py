@@ -221,9 +221,13 @@ class ProxyTab(QWidget):
             return f"http://{user}:{pwd}@{host}:{port}"
         return line
 
+    @staticmethod
+    def _display_line(line: str) -> str:
+        return line.strip()
+
     def _format_lines(self):
         lines = self.proxy_edit.toPlainText().splitlines()
-        converted = [self._normalize_line(l) for l in lines]
+        converted = [self._display_line(l) for l in lines]
         self.proxy_edit.setPlainText("\n".join(converted))
         self.test_status.setText("格式转换完成")
         self.test_status.setStyleSheet("color: #34d399; font-size: 12px;")
@@ -231,7 +235,7 @@ class ProxyTab(QWidget):
     def load_config(self, cfg: dict):
         p = cfg.get("proxy", {})
         lines = p.get("pool", [])
-        self.proxy_edit.setPlainText("\n".join(self._normalize_line(l) for l in lines))
+        self.proxy_edit.setPlainText("\n".join(self._display_line(l) for l in lines))
 
     def collect_config(self, cfg: dict):
         cfg["proxy"] = {
