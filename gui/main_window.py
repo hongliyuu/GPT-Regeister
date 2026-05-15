@@ -6,7 +6,7 @@ from pathlib import Path
 import webbrowser
 
 from PySide6.QtCore import QEvent, QSettings, Qt, QPoint
-from PySide6.QtGui import QColor, QCloseEvent, QFont, QGuiApplication, QIcon, QMouseEvent, QTextCursor
+from PySide6.QtGui import QColor, QCloseEvent, QFont, QGuiApplication, QIcon, QMouseEvent, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QGraphicsDropShadowEffect,
@@ -55,6 +55,14 @@ class TitleBar(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 4, 0)
         layout.setSpacing(0)
+
+        icon_label = QLabel()
+        icon_label.setFixedSize(22, 22)
+        icon_path = Path(__file__).parent / "openai.ico"
+        if icon_path.exists():
+            icon_label.setPixmap(QPixmap(str(icon_path)).scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        layout.addWidget(icon_label)
+        layout.addSpacing(8)
 
         title = QLabel("GPT-Regeister")
         title.setObjectName("TitleBarTitle")
