@@ -3,6 +3,7 @@ import sys
 import ctypes
 import ctypes.wintypes
 from pathlib import Path
+import webbrowser
 
 from PySide6.QtCore import QEvent, QSettings, Qt, QPoint
 from PySide6.QtGui import QColor, QCloseEvent, QFont, QGuiApplication, QIcon, QMouseEvent, QTextCursor
@@ -360,6 +361,9 @@ class ConfigEditor(QMainWindow):
         self.load_btn = QPushButton("重新加载")
         self.load_btn.setToolTip("从 config.yaml 重新读取配置")
 
+        self.accounts_viewer_btn = QPushButton("查看账号")
+        self.accounts_viewer_btn.setToolTip("在浏览器中打开 accounts_viewer.html")
+
         self.toggle_log_btn = QPushButton("隐藏日志")
         self.toggle_log_btn.setToolTip("隐藏或显示运行日志")
 
@@ -368,6 +372,7 @@ class ConfigEditor(QMainWindow):
 
         btn_row.addWidget(self.save_btn)
         btn_row.addWidget(self.load_btn)
+        btn_row.addWidget(self.accounts_viewer_btn)
         btn_row.addStretch()
         btn_row.addWidget(self.toggle_log_btn)
         btn_row.addWidget(self.clear_log_btn)
@@ -407,6 +412,7 @@ class ConfigEditor(QMainWindow):
 
         self.load_btn.clicked.connect(self._load_config)
         self.save_btn.clicked.connect(self._save_config)
+        self.accounts_viewer_btn.clicked.connect(self._open_accounts_viewer)
         self.toggle_log_btn.clicked.connect(self._toggle_log_panel)
         self._register_tab.run_registration.connect(self._run_registration)
         self._email_tab.provider_changed.connect(self._on_provider_changed)
@@ -425,6 +431,14 @@ class ConfigEditor(QMainWindow):
 
     def _toggle_log_panel(self):
         self._set_log_visible(not self._log_visible)
+
+    def _open_accounts_viewer(self):
+        viewer_path = Path(__file__).resolve().parent.parent / "accounts_viewer.html"
+        if not viewer_path.exists():
+            QMessageBox.warning(self, "未找到账号查看器", f"文件不存在：\n{viewer_path}")
+            return
+        webbrowser.open(viewer_path.as_uri())
+        self.status_bar.showMessage("已在浏览器打开账号查看器")
 
     def _on_provider_changed(self, provider: str):
         self._register_tab.set_manual_mode(provider == "manual")
