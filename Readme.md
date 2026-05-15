@@ -28,6 +28,62 @@ python .\main.py -n 10 --workers 3 --continue-on-fail
 | `--continue-on-fail` | 单个账号失败后继续 |
 | `--verbose` | 输出详细日志 |
 
+## 打包 EXE
+
+项目提供 Windows 打包脚本：
+
+```powershell
+.\build_exe.ps1
+```
+
+脚本会自动完成：
+
+- 检查 `gui/openai.ico` 是否存在
+- 安装缺失的 `pyinstaller`
+- 清理旧的 `build/`、`dist/` 和 `GPT-Regeister.spec`
+- 使用 GUI 入口 `run_gui.py` 打包
+- 将依赖和资源放在 exe 同级根目录，不生成 `_internal`
+- 生成文件夹和 zip 压缩包
+
+打包产物：
+
+```text
+dist/GPT-Regeister/GPT-Regeister.exe
+dist/GPT-Regeister.zip
+```
+
+打包后的目录结构会类似：
+
+```text
+dist/GPT-Regeister/
+├─ GPT-Regeister.exe
+├─ gui/
+│  └─ openai.ico
+├─ sentinel/
+├─ node/
+├─ PySide6/
+├─ python*.dll
+└─ 其他运行依赖
+```
+
+`config.yaml`、`accounts_viewer.html`、账号数据库和归档文件由程序运行时自动生成，不随安装包内置。
+
+如需手动执行打包命令：
+
+```powershell
+pyinstaller `
+  --noconfirm `
+  --clean `
+  --windowed `
+  --name GPT-Regeister `
+  --contents-directory . `
+  --icon gui\openai.ico `
+  --add-data "gui\openai.ico;gui" `
+  --add-data "sentinel;sentinel" `
+  --add-data "node;node" `
+  run_gui.py
+```
+
 ## 核心配置
 
 ### 注册信息

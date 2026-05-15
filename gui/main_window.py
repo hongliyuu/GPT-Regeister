@@ -536,7 +536,7 @@ def main():
     app.setStyle("Fusion")
     app.setStyleSheet(LIGHT_THEME)
 
-    _icon_path = Path(__file__).parent / "openai.svg"
+    _icon_path = Path(__file__).parent / "openai.ico"
     if _icon_path.exists():
         app.setWindowIcon(QIcon(str(_icon_path)))
 
