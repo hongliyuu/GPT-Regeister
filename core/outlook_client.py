@@ -403,4 +403,4 @@ def _is_after(item: dict, after_ts: float) -> bool:
     if ts is None:
         # 时间字段缺失/解析不出 → 放过（不要因解析失败就丢邮件）
         return True
-    return ts >= after_ts - _OTP_CLOCK_SKEW_TOLERANCE
+    return ts >= after_ts

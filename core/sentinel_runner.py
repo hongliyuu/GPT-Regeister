@@ -183,8 +183,8 @@ def generate_sentinel_token(
             "--width", "1920",
             "--height", "1080",
             "--cores", "32",
-            "--language", "ja-JP",
-            "--languages", "ja-JP,ja,en-US,en",
+            "--language", "en-US",
+            "--languages", "en-US,en",
             "--no-cookie",
         ]
 

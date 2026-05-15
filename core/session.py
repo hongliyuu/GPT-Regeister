@@ -61,10 +61,10 @@ class BrowserSession:
             "sec-ch-ua": SEC_CH_UA,
             "sec-ch-ua-platform": SEC_CH_UA_PLATFORM,
             "sec-ch-ua-mobile": SEC_CH_UA_MOBILE,
-            "accept-language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+            "accept-language": "en-US",
         }
 
-    def get_chatgpt_headers(self, referer: str = "https://chatgpt.com/login") -> dict:
+    def get_chatgpt_headers(self, referer: str = "https://chatgpt.com/") -> dict:
         """
         获取 chatgpt.com 域名的请求头。
         用于步骤1-3。

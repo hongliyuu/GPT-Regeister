@@ -88,6 +88,7 @@ def signin_openai(session: BrowserSession, csrf_token: str, email: str) -> str:
     # 构造 URL 查询参数
     query_params = {
         "prompt": "login",
+        "device_id": session.device_id,
         "ext-oai-did": session.device_id,
         "auth_session_logging_id": session.auth_session_logging_id,
         "ext-passkey-client-capabilities": "1111",
@@ -103,7 +104,7 @@ def signin_openai(session: BrowserSession, csrf_token: str, email: str) -> str:
 
     # 构造请求体
     body = urlencode({
-        "callbackUrl": "https://chatgpt.com/login",
+        "callbackUrl": "https://chatgpt.com/",
         "csrfToken": csrf_token,
         "json": "true",
     })

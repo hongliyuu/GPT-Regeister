@@ -274,7 +274,7 @@ def _is_after(item: dict, after_ts: float | None) -> bool:
     if after_ts is None:
         return True
     ts = _parse_ts(item)
-    return ts == 0.0 or ts >= after_ts - 30
+    return ts == 0.0 or ts >= after_ts
 
 
 def _recipient_matches(item: dict, target_email: str) -> bool:
