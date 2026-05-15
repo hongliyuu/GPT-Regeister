@@ -6,6 +6,9 @@ __pycache__/
 *.pyd
 .Python
 
+# 真实浏览器登录记录
+record_*
+
 # Virtual environments
 .venv/
 venv/
