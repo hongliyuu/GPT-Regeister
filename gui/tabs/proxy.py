@@ -161,7 +161,7 @@ class ProxyTab(QWidget):
         l.setContentsMargins(12, 16, 24, 16)
 
         l.addWidget(section_label("代理池"))
-        hint = QLabel("每行一个代理 URL，支持 http / https / socks5 / socks5h")
+        hint = QLabel("每行一个代理 URL，支持 http / https / socks5 / socks5h；留空不使用代理")
         hint.setStyleSheet("color: #606080; font-size: 12px; margin-bottom: 4px;")
         l.addWidget(hint)
 

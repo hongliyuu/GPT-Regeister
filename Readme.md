@@ -182,6 +182,8 @@ proxy:
     - http://user:password@host:port
 ```
 
+代理池留空时不使用代理，程序将直接连接。
+
 ### 2FA
 
 ```yaml
