@@ -208,6 +208,19 @@ def _run_registration_once(
     else:
         logger.debug("已跳过 2FA 设置 (config.ENABLE_2FA=False)")
 
+    # checkout 链接只是后续人工过渡入口，只打印到日志，不参与账号归档。
+    checkout_result = {"status": "skipped", "ok": False, "message": "未触发"}
+    try:
+        from core.checkout import create_checkout_link
+        checkout_result = create_checkout_link(session, access_token)
+    except Exception as exc:
+        checkout_result = {"status": "failed", "ok": False, "message": f"{type(exc).__name__}: {exc}"}
+
+    if checkout_result.get("ok"):
+        logger.info(f"[Checkout] 成功：{email}，链接={checkout_result.get('link')}")
+    else:
+        logger.warning(f"[Checkout] 失败：{email}，原因={checkout_result.get('message')}")
+
     from config import EMAIL_SOURCE
 
     account_id = save_account_data(
